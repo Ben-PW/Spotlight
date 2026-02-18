@@ -27,7 +27,7 @@ IDNodes <- function(graph_list){
 }
 
 ##### Compute network level metrics #####
-
+# Very easy to add more metric here if needed
 # Note to self
 # I think I need to address the rounding here?
 
@@ -72,13 +72,13 @@ computeCentralityDf <- function(graph_list,
     Degree <- igraph::degree(g, mode = "all", normalized = normalized)
     Betweenness <- igraph::betweenness(
       g,
-      directed = igraph::is_directed(g),
+      directed = igraph::is_directed(g), # this is handy if interested in directed later
       normalized = normalized
     )
     Closeness <- igraph::closeness(
       g,
       mode = "all",
-      normalized = normalized
+      normalized = normalized # normalised for now but that's cosmetic
     )
     Eigenvector <- igraph::eigen_centrality(
       g,

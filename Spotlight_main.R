@@ -62,6 +62,7 @@ GTAll <- Map(computeMetrics, datasets, names(datasets)) %>%
 
 #### Spotlight params ####
 
+# Basic params for testing
 spotlight_pcts <- c(0.01, 0.10) # % nodes spotlit
 miss_levels    <- c(0.10, 0.20) # missingness levels
 alphas         <- c(0, 0.5, 1, 2) # exponential degree bias
