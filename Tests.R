@@ -10,7 +10,7 @@ test_that("assignSpotlight assigns expected vertices and edges given seed", {
   spotlight_pct <- 0.25
   alpha <- 2
   
-  # --- expected, reproduced deterministically ---
+  # expected
   withr::with_seed(123, {
     n <- vcount(g)
     k <- max(1L, round(n * spotlight_pct))
@@ -22,7 +22,7 @@ test_that("assignSpotlight assigns expected vertices and edges given seed", {
     Spotlight_expected[idx] <- 1L
   })
   
-  # --- actual ---
+  # actual 
   out <- withr::with_seed(123, {
     assignSpotlight(gl, spotlight_pct = spotlight_pct, alpha = alpha)
   })
