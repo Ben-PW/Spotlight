@@ -1,6 +1,13 @@
 #################################################################################################
 
-# Spotlight function now uses exponential weighting
+# Spotlight functions are contained in this script. They are divided into two
+# stages - the assignment of the spotlight, and the conditional sampling of
+# edges given spotlight status and non-spotlit tie weight. Spotlit ties are
+# currently given a base weight of 1, with non spotlit tie weights defined 
+# manually. Ties are then sampled to be removed from the network conditionally
+# on tie weight and specified missingness level. This should not be difficult to
+# alter, however, if another method seems superior, as long as the underlying 
+# method remains edge sampling
 
 ####################################################################################
 
@@ -30,7 +37,7 @@ assignSpotlight <- function(graph_list, spotlight_pct, alpha = 0) {
     # Assign to edges
       ends_mat <- igraph::ends(g, igraph::E(g), names = FALSE)
       igraph::E(g)$Spotlight <-
-        as.integer(Spotlight[ends_mat[,1]] | Spotlight[ends_mat[,2]])
+        as.integer(Spotlight[ends_mat[,1]] | Spotlight[ends_mat[,2]]) # assign spotlight if either end is incident on a spotlit node
   
     
     g

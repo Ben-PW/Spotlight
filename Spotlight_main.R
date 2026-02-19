@@ -15,23 +15,17 @@ source('Compute_NetStats.R') # Assorted helper functions
 source('Spotlight_function.R') # Spotlight relevant functions
 source('Data_handlers.R')
 
-library(dplyr)
+#library(dplyr)
 
 ####################################### Simulate networks #######################################
 
 # Toy networks for now
 
-iFlo <- simulate(flo1, nsim = 100) # 100 networks per condition
-iAc1 <- simulate(acct1, nsim = 100)
-iAc2 <- simulate(acct2, nsim = 100)
+iFlo <- stats::simulate(flo1, nsim = 100) # 100 networks per condition
+iAc1 <- stats::simulate(acct1, nsim = 100)
+iAc2 <- stats::simulate(acct2, nsim = 100)
 
 rm(flo1, acct1, acct2)
-
-detach(package:statnet)
-detach(package:sna)
-
-library(igraph)
-library(intergraph)
 
 ##### Define datasets #####
 

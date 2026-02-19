@@ -11,20 +11,20 @@
 # install.packages("remotes")
 # remotes::install_github("schochastics/networkdata")
 
-library(statnet)
-library(networkdata)
-library(intergraph)
+#library(statnet)
+#library(networkdata)
+#library(intergraph)
 
 ########################################## Florentine Families ######################################
 # 16x16 undirected, low density, isolates
 
-data(flo)
+data("flo", package = "network")
 
-flo <- network(flo, directed = F)
+flo <- network::network(flo, directed = F)
 
 flo %v% "wealth" <- c(10,36,27,146,55,44,20,8,42,103,48,49,10,48,32,3)
 
-flo1 <- ergm(flo ~ edges + absdiff("wealth"))
+flo1 <- ergm::ergm(flo ~ edges + absdiff("wealth"))
 rm(flo)
 
 ####################################### Books network ##################################
@@ -35,7 +35,7 @@ rm(flo)
 ###############################  ############################
 # 4 x 24 x 24 weighted adjacency matrices
 
-data(covert_17)
+data("covert_17", package = "networkdata")
 
 ac1 <- intergraph::asNetwork(covert_17)
 ac2 <- intergraph::asNetwork(covert_17) # just using the same data for now
@@ -46,14 +46,13 @@ plot(ac2)
 
 
 
-acct1 <- ergm(ac1 ~ edges)
+acct1 <- ergm::ergm(ac1 ~ edges)
 summary(acct1)
 
-acct2 <- ergm(ac2 ~ edges)
+acct2 <- ergm::ergm(ac2 ~ edges)
 summary(acct2)
 
 rm(ac1, ac2)
 
 #################################### Detach data package ###################################
 
-detach(package:networkdata)

@@ -4,7 +4,7 @@
 
 ####################################################################################################
 
-library(igraph)
+#library(igraph)
 
 # Coerce directed networks to symmetrical
 
@@ -21,7 +21,7 @@ undirect <- function(graph_list) {
 
 IDNodes <- function(graph_list){
   lapply(graph_list, function(g){
-    V(g)$NodeID <- seq_len(vcount(g))
+    V(g)$NodeID <- seq_len(igraph::vcount(g))
     g
   })
 }
@@ -36,23 +36,23 @@ computeMetrics <- function(graph_list, name) {
     id = paste0(name,"_", seq_along(graph_list)),
     
     density = sapply(graph_list, function(g) {
-      edge_density(g, loops = FALSE)
+      igraph::edge_density(g, loops = FALSE)
     }),
     
     dcent = sapply(graph_list, function(g) {
-      cent <- centr_degree(g, mode = "all", normalized = TRUE)
+      cent <- igraph::centr_degree(g, mode = "all", normalized = TRUE)
       cent$centralization
     }),
     
     clustering = sapply(graph_list, function(g) {
-      transitivity(g, type = "global")
+      igraph::transitivity(g, type = "global")
     }),
     
-    size = sapply(graph_list, vcount),
+    size = sapply(graph_list, igraph::vcount),
     
     APL = sapply(graph_list, function(g) {
       # all‐pairs shortest paths; exclude Infs
-      dist_mat <- distances(g, mode = "all")
+      dist_mat <- igraph::distances(g, mode = "all")
       mean(dist_mat[is.finite(dist_mat)], na.rm = TRUE)
     })
   )
@@ -85,12 +85,7 @@ computeCentralityDf <- function(graph_list,
       directed = igraph::is_directed(g)
     )$vector
     
-    # Attach to graph (bit of a holdover from an old function but it works)
-    igraph::V(g)$Degree <- Degree
-    igraph::V(g)$Betweenness <- Betweenness
-    igraph::V(g)$Closeness <- Closeness
-    igraph::V(g)$Eigenvector <- Eigenvector
-    
+    # Write results to tibble
     tibble::tibble(
       net_id = net_id,
       network_label = network_label,
@@ -108,4 +103,4 @@ computeCentralityDf <- function(graph_list,
   })
 }
 
-detach(package:igraph)
+#detach(package:igraph)
