@@ -11,10 +11,6 @@
 # install.packages("remotes")
 # remotes::install_github("schochastics/networkdata")
 
-#library(statnet)
-#library(networkdata)
-#library(intergraph)
-
 ########################################## Florentine Families ######################################
 # 16x16 undirected, low density, isolates
 
