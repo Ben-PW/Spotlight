@@ -21,7 +21,7 @@ undirect <- function(graph_list) {
 
 IDNodes <- function(graph_list){
   lapply(graph_list, function(g){
-    V(g)$NodeID <- seq_len(igraph::vcount(g))
+    igraph::V(g)$NodeID <- seq_len(igraph::vcount(g))
     g
   })
 }

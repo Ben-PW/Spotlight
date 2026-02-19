@@ -22,7 +22,10 @@ data("flo", package = "network")
 
 flo <- network::network(flo, directed = F)
 
-flo %v% "wealth" <- c(10,36,27,146,55,44,20,8,42,103,48,49,10,48,32,3)
+network::set.vertex.attribute(flo,
+                              "wealth",
+                              c(10,36,27,146,55,44,20,8,42,103,48,49,10,48,32,3))
+#flo %v% "wealth" <- c(10,36,27,146,55,44,20,8,42,103,48,49,10,48,32,3)
 
 flo1 <- ergm::ergm(flo ~ edges + absdiff("wealth"))
 rm(flo)

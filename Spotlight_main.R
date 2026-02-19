@@ -51,8 +51,8 @@ datasets <- lapply(datasets, IDNodes)
 
 ##### Compute Ground Truth metrics #####
 
-GTAll <- Map(computeMetrics, datasets, names(datasets)) %>%
-  bind_rows()
+GTAll <- Map(computeMetrics, datasets, names(datasets)) |>
+  dplyr::bind_rows()
 
 #### Spotlight params ####
 
@@ -88,7 +88,7 @@ for (ds in names(datasets)) {
           obs_list <- sampleSpotlight(sp_list, miss_level = ml, b = bv)
           
           # Global metrics
-          global_rows[[kg]] <- computeMetrics(obs_list, name = ds) %>%
+          global_rows[[kg]] <- computeMetrics(obs_list, name = ds) |>
             dplyr::mutate(
               network_label = ds,
               alpha = a,
@@ -138,11 +138,11 @@ nodeGT <- purrr::imap_dfr(datasets, function(base_list, ds) {
     b              = NA_real_,
     spotlight_pct  = NA_real_,
     miss_level     = NA_real_
-  ) %>% dplyr::mutate(source = "true")
+  ) |> dplyr::mutate(source = "true")
 })
 
 # Tag observed nodes
-nodeResults <- nodeResults %>% dplyr::mutate(source = "observed")
+nodeResults <- nodeResults |> dplyr::mutate(source = "observed")
 
 
 
