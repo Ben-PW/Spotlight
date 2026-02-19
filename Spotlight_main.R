@@ -7,17 +7,12 @@
 
 ########################################### Begin ##############################################
 
-#### Importing data and functions ####
-# This needs to be done before loading packages as some scripts load and detach packages
-
 source('Data_process.R') # ERGMs fit to data
 source('Compute_NetStats.R') # Assorted helper functions
 source('Spotlight_function.R') # Spotlight relevant functions
-source('Data_handlers.R')
+source('Data_handlers.R') # Not written yet
 
-#library(dplyr)
-
-####################################### Simulate networks #######################################
+#### Simulate networks ####
 
 # Toy networks for now
 
@@ -123,7 +118,7 @@ for (ds in names(datasets)) {
 testResults <- dplyr::bind_rows(global_rows)
 nodeResults <- dplyr::bind_rows(node_rows)
 
-#### Get baseline node centralities
+#### Get baseline node centralities ####
 # Baseline don't have alpha/b/miss_level so set to NA
 
 nodeGT <- purrr::imap_dfr(datasets, function(base_list, ds) {
