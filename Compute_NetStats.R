@@ -85,25 +85,25 @@ computeCentralityDf <- function(graph_list,
       directed = igraph::is_directed(g)
     )$vector
     
-    # Attach to graph
+    # Attach to graph (bit of a holdover from an old function but it works)
     igraph::V(g)$Degree <- Degree
     igraph::V(g)$Betweenness <- Betweenness
     igraph::V(g)$Closeness <- Closeness
     igraph::V(g)$Eigenvector <- Eigenvector
     
     tibble::tibble(
-      net_id        = net_id,
+      net_id = net_id,
       network_label = network_label,
-      alpha         = alpha,
-      b             = b,
+      alpha = alpha,
+      b = b,
       spotlight_pct = spotlight_pct,
-      miss_level    = miss_level,
-      NodeID        = as.integer(igraph::V(g)$NodeID),
-      Spotlight     = as.integer(igraph::V(g)$Spotlight),
-      Degree        = Degree,
-      Betweenness   = Betweenness,
-      Closeness     = Closeness,
-      Eigenvector   = Eigenvector
+      miss_level = miss_level,
+      NodeID = as.integer(igraph::V(g)$NodeID),
+      Spotlight = as.integer(igraph::V(g)$Spotlight),
+      Degree = Degree,
+      Betweenness = Betweenness,
+      Closeness = Closeness,
+      Eigenvector = Eigenvector
     )
   })
 }

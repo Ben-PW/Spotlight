@@ -84,7 +84,7 @@ for (ds in names(datasets)) {
   for (a in alphas) {
     for (sp in spotlight_pcts) {
       
-      # Do spotlight here so it's consistent across runs
+      # Do spotlight here so it's consistent across ml and b levels
       sp_list <- assignSpotlight(base_list, spotlight_pct = sp, alpha = a)
       
       for (bv in bs) {
