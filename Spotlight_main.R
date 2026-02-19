@@ -58,14 +58,14 @@ GTAll <- Map(computeMetrics, datasets, names(datasets)) |>
 
 # Basic params for testing
 spotlight_pcts <- c(0.01, 0.10) # % nodes spotlit
-miss_levels    <- c(0.10, 0.20) # missingness levels
-alphas         <- c(0, 0.5, 1, 2) # exponential degree bias
-bs             <- c(1, 2, 4) # weights for non-spotlit ties
+miss_levels <- c(0.10, 0.20) # missingness levels
+alphas <- c(0, 0.5, 1, 2) # exponential degree bias
+bs <- c(1, 2, 4) # weights for non-spotlit ties
 
 #### Begin sim ####
 
 global_rows <- list()
-node_rows   <- list()
+node_rows <- list()
 kg <- 1L # metrics list counter
 kn <- 1L # nodes counter
 
@@ -132,12 +132,12 @@ nodeGT <- purrr::imap_dfr(datasets, function(base_list, ds) {
   base_tmp <- lapply(base_list, function(g) { igraph::V(g)$Spotlight <- 0L; g })
   
   computeCentralityDf(
-    graph_list     = base_tmp,
-    network_label  = ds,
-    alpha          = NA_real_,
-    b              = NA_real_,
-    spotlight_pct  = NA_real_,
-    miss_level     = NA_real_
+    graph_list = base_tmp,
+    network_label = ds,
+    alpha = NA_real_,
+    b = NA_real_,
+    spotlight_pct = NA_real_,
+    miss_level = NA_real_
   ) |> dplyr::mutate(source = "true")
 })
 

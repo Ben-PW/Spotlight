@@ -5,8 +5,7 @@
 #####################################################################################################
 
 #### IMPORTANT !!! ####
-# If you are trying to run the demo section, you must run the below commented
-# out code
+# If you are trying to run the demo section, you must uncomment below
 
 # install.packages("remotes")
 # remotes::install_github("schochastics/networkdata")
@@ -40,12 +39,10 @@ ac1 <- intergraph::asNetwork(covert_17)
 ac2 <- intergraph::asNetwork(covert_17) # just using the same data for now
 
 
-plot(ac1)
-plot(ac2)
+# plot(ac1)
+# plot(ac2)
 
-
-
-acct1 <- ergm::ergm(ac1 ~ edges)
+acct1 <- ergm::ergm(ac1 ~ edges) 
 summary(acct1)
 
 acct2 <- ergm::ergm(ac2 ~ edges)
@@ -53,5 +50,4 @@ summary(acct2)
 
 rm(ac1, ac2)
 
-#################################### Detach data package ###################################
 
