@@ -1,4 +1,4 @@
-# Running this code yourself
+## Running this code yourself
 
 This code should be trivial to run on your own machine. 
 The only change you will need to make is to uncomment a section of code in 'Data_process.R' if you are running it for the first time.
@@ -8,7 +8,7 @@ The empirical datasets consist of a 16 node network and another network of appro
 Once you have commented out the relevant section of code in 'Data_process.R', you can just run 'Spotlight_main.R'. The code should take no more than
 2 - 3 minutes, and use no more than 1GB. Network level output is stored in the dataframe 'testResults'. Node level output is stored in 'nodeResults'.
 
-# Planned improvements
+## Planned improvements
 
 I plan to update the loop so that, instead of 'nodeResults' being a dataframe of every centrality statistic for every node in every network (which, for this reduced version of the run, resulted in a dataset of over 1 million rows), the loop instead calculates the node level outcome measures and only stores them per network. This should substantially reduce the memory required to run the loop.
 
@@ -16,7 +16,7 @@ I have considered parallelisation for the main loop, however this might be diffi
 
 If memory becomes an issue, I plan to batch the calculations, or have the loop save results to disk instead of storing them in RAM. Saving to disk will likely be easier.
 
-# Key design choices
+## Key design choices
 
 Parameters
 - spotlight_pcts (percentage of nodes selected to be spotlit)
@@ -27,3 +27,7 @@ Parameters
 For assigning spotlight by attribute, I have a slightly hacky plan. Attribute will be proxied by a dummy variable labelled 'Degree', as the spotlight assignment code expects a variable of that name to weight assignment probabilties by. 
 
 The main design choice currently is how edge deletion probability is assigned. As is, the 'b' parameter controls the sampling weight assigned to each non-spotlit tie. Spotlit ties are assigned a weight of 1. The probability of a tie being sampled for deletion is, therefore, the product of the proportion of non spotlit ties, the missingness level selected, and the b parameter. Any feedback on this mechanism is welcome, as it is relatively easy to change at this stage of the code.
+
+## Options for future work
+
+The framework itself is quite robust, and is able to handle missing nodes and spuriously present nodes through the use of the NodeID system and a matchNodes() function (present in earlier versions but not required for this case), which means bias calculations are only carried out on nodes present in both Ground Truth and Error networks. This means that, on undirected networks, it can comfortably simulate a wide range of various error conditions, not just tie deletion/addition. With some adjustment it will be able to handle directed networks as well, although this would require updating some of the error functions. Earlier versions of the code have functions in place to simulate randomly missing/added ties, randomly missing nodes, randomly added nodes which randomly extend a fixed number of ties to random nodes in the network, and randomly added nodes which extent a variable number of ties to the network, with the number being determined by sampling from the existing network degree distribution. 
