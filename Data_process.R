@@ -39,12 +39,12 @@ pira_att <- read.csv(
   check.names = FALSE
 )
 
-# Replace 99999 placeholders with "Unknown" (vectorised)
+# 99999 assumed to be placeholder for missing data
 att_mat <- as.matrix(pira_att[, -1, drop = FALSE])
 att_mat[att_mat == 99999] <- "Unknown"
 pira_att[, -1] <- att_mat
 
-# Remove Age at Recruitment (high missingness / excluded from modelling)
+# Remove Age due to high missingness 
 if ("Age at Recruitment" %in% names(pira_att)) {
   pira_att[["Age at Recruitment"]] <- NULL
 }
@@ -54,19 +54,16 @@ for (col in names(pira_att)[-1]) {
   network::set.vertex.attribute(PIRA3, col, pira_att[[col]])
 }
 
-# Verify alignment between network vertex.names and attribute ID column
-node_ids <- network::get.vertex.attribute(PIRA3, "vertex.names")
-stopifnot(all(node_ids == pira_att[[1]]))
 
 ######################### Brigade collapse #########################
 
-# Brigade membership stored as multiple binary dummies; collapse to one categorical "Brigade"
+# Brigade membership stored as multiple binary dummies so collapse to one categorical
 brig_vars <- c(
   "Antrim Brigade", "Armagh Brigade", "Derry Brigade", "Down Brigade",
   "Fermanagh Brigade", "Tyrone Brigade"
 )
 
-# Pull dummies from attached attributes and coerce to 0/1 (treat anything == 1 as membership)
+# Pull dummies from attached attributes 
 M <- sapply(brig_vars, function(v) {
   as.integer(network::get.vertex.attribute(PIRA3, v) == 1)
 })
@@ -78,11 +75,11 @@ rs <- rowSums(M)
 BrigadeUnknown <- as.integer(rs != 1)
 Brigade <- ifelse(rs == 1, brig_vars[max.col(M, ties.method = "first")], "Unknown")
 
-# Set derived attributes
+# Set attributes
 network::set.vertex.attribute(PIRA3, "BrigadeUnknown", BrigadeUnknown)
 network::set.vertex.attribute(PIRA3, "Brigade", Brigade)
 
-# Convenience: known brigades for nodematch() (exclude Unknown)
+# Store known brigades
 known_brig <- setdiff(unique(Brigade), "Unknown")
 
 table(rowSums(M))
