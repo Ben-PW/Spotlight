@@ -92,27 +92,47 @@ rm(pira_df, pira_att, att_mat, node_ids, brig_vars, M, rs, BrigadeUnknown, Briga
 
 #### Specify ERGM ####
 
-#ctrl <- ergm::control.ergm(
-#  MCMC.burnin = 2e5,
-#  MCMC.interval = 4096,
-#  MCMC.samplesize = 12000,
-#  MCMLE.maxit = 60
-#)
+ctrl <- ergm::control.ergm(
+  seed = 1234
+)
 
-m_test <- ergm::ergm(PIRA3 ~ edges + 
+pira3 <- ergm::ergm(PIRA3 ~ edges + 
                        gwdegree(0.5, fixed = TRUE) +
                        #gwesp(0.5, fixed = TRUE) +
-                       nodefactor("Marital Status") +
+                       nodefactor("Marital Status",
+                                  levels = 1) +
                        nodematch("Marital Status", 
                                          levels = c(0,1)) +
                        nodematch("Gender") +
                        nodematch("University") +
-                       nodefactor("Brigade") + 
-                       nodematch("Brigade", levels = known_brig),
-                     #control = ctrl
+                       nodefactor("Brigade", 
+                                  levels = known_brig) + #estimate coefficients for real brigades and leave unknowns as reference
+                       nodematch("Brigade", 
+                                 levels = known_brig) +
+                       nodefactor("Period3Vio") +
+                       nodematch("Period3Vio") +
+                       nodefactor("Period3NonVio") +
+                       nodematch("Period3NonVio") +
+                       nodefactor("Period3VForOp") +
+                       nodematch("Period3VForOp") +
+                       nodefactor("Period3Senior") +
+                       #nodematch("Period3Senior") + excluded as linear combination with nodefactor. Nodefactor had higher coefficient in base study
+                       nodefactor("Period3Gun") +
+                       nodematch("Period3Gun") +
+                       nodefactor("Period3IED_C") +
+                       nodematch("Period3IED_C") +
+                       nodefactor("Period3IED_P") +
+                       nodematch("Period3IED_P") +
+                       nodefactor("Period3ForOp") +
+                       nodematch("Period3ForOp") +
+                       nodefactor("Period3Rob") +
+                       nodematch("Period3Rob"),
+                     control = ctrl
                      )
 
-summary(m_test)
+summary(pira3)
+par(mar = c(2, 2, 2, 2))
+ergm::mcmc.diagnostics(pira3) # actually looks pretty good, decent chain mixing and distributions are normal
 
 ########################################## Florentine Families ######################################
 # 16x16 undirected, low density, isolates
