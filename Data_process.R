@@ -13,7 +13,8 @@
 here::here()
 
 ############################# Provisional Irish Republican Army 
-######################### Load network #########################
+
+#### Load network #####
 
 pira_df <- as.matrix(
   read.csv(
@@ -31,7 +32,7 @@ PIRA3 <- network::network(
   matrix.type = "adjacency"
 )
 
-######################### Load attributes #########################
+#### Load attributes ####
 
 pira_att <- read.csv(
   here::here("Data", "PIRA", "60_PERIOD3_ATT.csv"),
@@ -55,7 +56,7 @@ for (col in names(pira_att)[-1]) {
 }
 
 
-######################### Brigade collapse #########################
+#### Brigade collapse ####
 
 # Brigade membership stored as multiple binary dummies so collapse to one categorical
 brig_vars <- c(
@@ -84,9 +85,17 @@ known_brig <- setdiff(unique(Brigade), "Unknown")
 
 table(rowSums(M))
 
-######################### Cleanup #########################
+# Cleanup 
 
-rm(pira_df, pira_att, att_mat, node_ids, brig_vars, M, rs, BrigadeUnknown, Brigade)
+rm(pira_df, 
+   pira_att, 
+   att_mat, 
+   node_ids, 
+   brig_vars, 
+   M, 
+   rs, 
+   BrigadeUnknown, 
+   Brigade)
 
 
 
@@ -99,16 +108,16 @@ ctrl <- ergm::control.ergm(
 pira3 <- ergm::ergm(PIRA3 ~ edges + 
                        gwdegree(0.5, fixed = TRUE) +
                        #gwesp(0.5, fixed = TRUE) +
-                       nodefactor("Marital Status",
+                       nodefactor("Marital Status", # estimating coefficient for married vs not married + unknown
                                   levels = 1) +
                        nodematch("Marital Status", 
-                                         levels = c(0,1)) +
+                                         levels = c(0,1)) + # estimating only coefficients for married and unmarried, exclude unknown
                        nodematch("Gender") +
                        nodematch("University") +
                        nodefactor("Brigade", 
                                   levels = known_brig) + #estimate coefficients for real brigades and leave unknowns as reference
                        nodematch("Brigade", 
-                                 levels = known_brig) +
+                                 levels = known_brig) + # match only between known brigades
                        nodefactor("Period3Vio") +
                        nodematch("Period3Vio") +
                        nodefactor("Period3NonVio") +
@@ -116,7 +125,7 @@ pira3 <- ergm::ergm(PIRA3 ~ edges +
                        nodefactor("Period3VForOp") +
                        nodematch("Period3VForOp") +
                        nodefactor("Period3Senior") +
-                       #nodematch("Period3Senior") + excluded as linear combination with nodefactor. Nodefactor had higher coefficient in base study
+                       #nodematch("Period3Senior") + excluded as linear combination with nodefactor. Nodefactor had higher coefficient in base study so was retained
                        nodefactor("Period3Gun") +
                        nodematch("Period3Gun") +
                        nodefactor("Period3IED_C") +
@@ -132,7 +141,9 @@ pira3 <- ergm::ergm(PIRA3 ~ edges +
 
 summary(pira3)
 par(mar = c(2, 2, 2, 2))
-ergm::mcmc.diagnostics(pira3) # actually looks pretty good, decent chain mixing and distributions are normal
+ergm::mcmc.diagnostics(pira3) # looks ok, decent chain mixing, some distributions have heavier left tail
+
+rm(ctrl)
 
 ########################################## Florentine Families ######################################
 # 16x16 undirected, low density, isolates
