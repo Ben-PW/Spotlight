@@ -101,6 +101,8 @@ rm(pira_df,
 
 #### Specify ERGM ####
 
+# ERGM with missing data included
+
 ctrl <- ergm::control.ergm(
   seed = 1234
 )
@@ -144,6 +146,68 @@ par(mar = c(2, 2, 2, 2))
 ergm::mcmc.diagnostics(pira3) # looks ok, decent chain mixing, some distributions have heavier left tail
 
 rm(ctrl)
+
+
+# ERGM which ignores any missing data
+
+ctrl <- ergm::control.ergm(
+  seed = 1234
+)
+
+pira4 <- ergm::ergm(PIRA3 ~ edges + 
+                      gwdegree(0.5, fixed = TRUE) +
+                      gwesp(1, fixed = TRUE) +
+                      #nodefactor("Marital Status", # estimating coefficient for married vs not married + unknown
+                      #           levels = 1) +
+                      nodematch("Marital Status", 
+                                levels = c(0,1)) + # estimating only coefficients for married and unmarried, exclude unknown
+                      nodematch("Gender") +
+                      nodematch("University") +
+                      #nodefactor("Brigade", 
+                      #           levels = known_brig) + #estimate coefficients for real brigades and leave unknowns as reference
+                      nodematch("Brigade", 
+                                levels = known_brig) + # match only between known brigades
+                      nodefactor("Period3Vio") +
+                      nodematch("Period3Vio") +
+                      nodefactor("Period3NonVio") +
+                      nodematch("Period3NonVio") +
+                      nodefactor("Period3VForOp") +
+                      nodematch("Period3VForOp") +
+                      nodefactor("Period3Senior") +
+                      #nodematch("Period3Senior") + excluded as linear combination with nodefactor. Nodefactor had higher coefficient in base study so was retained
+                      nodefactor("Period3Gun") +
+                      nodematch("Period3Gun") +
+                      nodefactor("Period3IED_C") +
+                      nodematch("Period3IED_C") +
+                      nodefactor("Period3IED_P") +
+                      nodematch("Period3IED_P") +
+                      nodefactor("Period3ForOp") +
+                      nodematch("Period3ForOp") +
+                      nodefactor("Period3Rob") +
+                      nodematch("Period3Rob"),
+                    control = ctrl
+)
+
+summary(pira4)
+par(mar = c(2, 2, 2, 2))
+ergm::mcmc.diagnostics(pira4) # decent chain mixing, some distributions have heavier right tail
+
+rm(ctrl)
+
+ergm::gof(pira3, GOF = ~ model)
+pira3gof <- ergm::gof(pira3, GOF = ~ distance + espartners + triadcensus + degree)
+par(mfrow = c(2,2))
+plot(pira3gof, cex.lab=1.6, cex.axis=1.6, 
+     plotlogodds = TRUE)
+plot(pira3gof) # bad
+
+ergm::gof(pira4, GOF = ~ model)
+pira4gof <- ergm::gof(pira4, GOF = ~ distance + espartners + triadcensus + degree)
+pira4gof
+par(mfrow = c(2,2))
+plot(pira4gof, cex.lab=1.6, cex.axis=1.6, 
+     plotlogodds = TRUE)
+plot(pira4gof) # bad
 
 ########################################## Florentine Families ######################################
 # 16x16 undirected, low density, isolates
