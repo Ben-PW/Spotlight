@@ -633,6 +633,83 @@ plot(pira3.4gof_LCC, cex.lab=1.6, cex.axis=1.6,
      plotlogodds = TRUE)
 
 ctrl <- ergm::control.ergm(
+  seed = 1234,
+  MCMLE.maxit = 200,
+  MCMC.burnin = 1000000
+)
+
+pira3.5_LCC <- ergm::ergm(PIRA3_LCC ~ edges + 
+                            #dsp(0) +
+                            gwdegree(0.5, fixed = TRUE) +
+                            gwesp(0.4, fixed = TRUE ) +
+                            nodefactor("Core") +
+                            nodematch("Core") +
+                            nodefactor("Marital Status", # estimating coefficient for married vs not married + unknown
+                                      levels = 1) +
+                            nodematch("Marital Status", 
+                                      levels = c(0,1)) + # estimating only coefficients for married and unmarried, exclude unknown
+                            nodematch("Gender") +
+                            nodefactor("Gender") +
+                            #nodematch("University") +
+                            nodefactor("Brigade", 
+                                       levels = known_brig) + #estimate coefficients for real brigades and leave unknowns as reference
+                            nodematch("Brigade",
+                                      levels = known_brig) +
+                          #nodefactor("ViolenceStatus"),
+                          nodematch("ViolenceStatus"),
+                          control = ctrl
+)
+
+summary(pira3.5_LCC)
+par(mar = c(2, 2, 2, 2))
+ergm::mcmc.diagnostics(pira3.5_LCC) 
+pira3.5gof_LCC <- ergm::gof(pira3.5_LCC, GOF = ~ distance + espartners + triadcensus + degree )
+pira3.5gof_LCC
+par(mfrow = c(2,2))
+plot(pira3.5gof_LCC, cex.lab=1.6, cex.axis=1.6, 
+     plotlogodds = TRUE)
+
+ctrl <- ergm::control.ergm(
+  seed = 1234,
+  MCMLE.maxit = 200,
+  MCMC.burnin = 1000000
+)
+
+pira3.6_LCC <- ergm::ergm(PIRA3_LCC ~ edges + 
+                            #dsp(0) +
+                            gwdegree(0.3, fixed = TRUE) +
+                            gwesp(0.3, fixed = TRUE ) +
+                            gwdsp(0.3, fixed = TRUE) +
+                            nodefactor("Core") +
+                            nodematch("Core") +
+                            nodefactor("Marital Status", # estimating coefficient for married vs not married + unknown
+                                       levels = 1) +
+                            nodematch("Marital Status", 
+                                      levels = c(0,1)) + # estimating only coefficients for married and unmarried, exclude unknown
+                            nodematch("Gender") +
+                            nodefactor("Gender") +
+                            #nodematch("University") +
+                            #nodefactor("Brigade", 
+                            #           levels = known_brig) + #estimate coefficients for real brigades and leave unknowns as reference
+                            nodematch("Brigade",
+                                      levels = known_brig) +
+                            #nodemix("Brigade") + 
+                            #nodefactor("ViolenceStatus"),
+                            nodematch("ViolenceStatus"),
+                          control = ctrl
+)
+
+summary(pira3.5_LCC)
+par(mar = c(2, 2, 2, 2))
+ergm::mcmc.diagnostics(pira3.5_LCC) 
+pira3.5gof_LCC <- ergm::gof(pira3.5_LCC, GOF = ~ distance + espartners + triadcensus + degree )
+pira3.5gof_LCC
+par(mfrow = c(2,2))
+plot(pira3.5gof_LCC, cex.lab=1.6, cex.axis=1.6, 
+     plotlogodds = TRUE)
+
+
+ctrl <- ergm::control.ergm(
   seed = 1234
 )
 
