@@ -82,10 +82,7 @@ PIRA3_LCC <- network::get.inducedSubgraph(PIRA3, keep_nodes)
 
 plot(PIRA3_LCC)
 
-# Insane core periphery structure is harming models
+# Significant core periphery structure
 deg <- sna::degree(PIRA3_LCC, gmode = "graph")
-cut <- as.numeric(stats::quantile(deg, 0.9))
-
-Core <- ifelse(deg >= cut, "core", "periphery")
-
-network::set.vertex.attribute(PIRA3_LCC, "Core", Core)
+hist(deg, breaks = 49, freq = TRUE)
+?hist

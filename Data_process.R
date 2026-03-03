@@ -12,6 +12,13 @@
 
 here::here()
 
+######################################### Simulation #################################
+
+n1 <- network::network.initialize(200,
+                                  directed = FALSE)
+
+
+
 ############################# Provisional Irish Republican Army 
 
 
