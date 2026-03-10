@@ -14,13 +14,211 @@ here::here()
 
 ######################################### Simulation #################################
 
-n1 <- network::network.initialize(200,
-                                  directed = FALSE)
+# Function to check descriptives of simulated networks
+network_summary <- function(net_list) {
+  
+  data.frame(
+    #target_density = 0.0066,
+    mean_density = mean(sapply(net_list, network::network.density)),
+    
+    #target_triangles = 7817,
+    mean_triangles = mean(sapply(net_list, function(g)
+      sna::triad.census(g, mode = "graph")[4])),
+    
+    #target_degree = 6.79,
+    mean_degree = mean(sapply(net_list, function(g)
+      mean(sna::degree(g, gmode = "graph")))),
+    
+    #target_max = 316,
+    mean_max_degree = mean(sapply(net_list, function(g)
+      max(sna::degree(g, gmode = "graph")))),
+    
+    #target_comp = 1,
+    mean_components = mean(sapply(net_list, function(g)
+      length(sna::component.dist(g)$csize)))
+  )
+}
+
+##### Smith & Papachristos 2016 based network #####
+
+# Approximate terms of criminal network from the paper
+# Alt triangles
+
+library(ergm)
+library(network)
+
+n <- 1030
+n1 <- network.initialize(n,
+                         directed = FALSE)
+
+n1 %v% "kingpin" <- as.integer(seq_len(n) == sample(n, 1))
+
+n1 %v% "eth" <- sample(c("English","German","Irish","Italian","Jewish","Other"),
+                        n, TRUE, prob=c(.23,.10,.22,.27,.06,.13))
+
+form <- n1 ~ isolates + 
+  edges + 
+  nodematch("eth") + 
+  nodefactor("kingpin") +
+  gwesp(0.5, fixed = TRUE) + 
+  gwdegree(0.5, fixed = TRUE) +
+  gwdsp(0.5, fixed=TRUE)
+
+coefs <- c(
+  isolates = -10,
+  edges = -5.5,                 
+  nodematch.eth = 0.1,
+  nodefactor.kingpin = 6,
+  gwesp.fixed = 2,
+  gwdeg.fixed = 0.5,
+  gwdsp.fixed = -0.1
+)
+
+sim1 <- simulate(
+  form,
+  coef = coefs,
+  nsim = 20,
+  output = "network"
+)
+
+plot(sim1[[1]])
+
+network_summary(sim1)
+
+form2 <- n1 ~ #components + 
+  edges + 
+  nodematch("eth") + 
+  nodefactor("kingpin") +
+  gwesp(0.7, fixed = TRUE) + 
+  gwdegree(0.2, fixed = TRUE) #+
+  #gwdsp(0.5, fixed=TRUE)
+
+coefs2 <- c(
+  #components = -1,
+  edges = -8,                 
+  nodematch.eth = 0.2,
+  nodefactor.kingpin = 8,
+  gwesp.fixed = 4,
+  gwdeg.fixed = 3#,
+  #gwdsp.fixed = -0.05
+)
+
+sim2 <- simulate(
+  form2,
+  coef = coefs2,
+  nsim = 20,
+  output = "network"
+)
+
+plot(sim2[[1]])
+
+network_summary(sim2)
 
 
+# ERGM formula
+form <- n1 ~ edges +
+  nodematch("group") +
+  gwesp(0.5, fixed = TRUE) +
+  gwdegree(0.5, fixed = TRUE) +
+  nodefactor("group")
 
-############################# Provisional Irish Republican Army 
+coefs <- c(
+  edges = -7,         
+  nodematch.group = 1,    
+  gwesp.fixed = 2.6,
+  gwdeg.fixed = 2.6,
+  nodefactor.group.B = -0.5
+)
 
+sim1 <- simulate(
+  form,
+  coef = coefs,
+  nsim = 100,
+  output = "network"
+)
+
+plot(sim1[[1]])
+
+
+############################# Grund and Densley 2014 ###############################
+
+n <- 48
+n1 <- network.initialize(n,
+                         directed = FALSE)
+
+n1 %v% "eth" <- sample(c("D","A","B","C"),
+                       n, TRUE, prob=c(24, 11, 10, 6))
+
+form <- n1 ~ edges +
+  nodematch("eth") +
+  nodefactor("eth", levels = c("A", "B", "C")) +
+  gwesp(0, fixed = TRUE)
+
+coefs <- c(
+  edges = -4.36,                 
+  nodematch.eth = 1.12,
+  #nodefactor.eth.D = 0,
+  nodefactor.eth.A = 0.5,
+  nodefactor.eth.B = 0.49,
+  nodefactor.eth.C = 0.61,
+  gwesp.fixed = 1.16
+)
+
+sim1 <- simulate(
+  form,
+  coef = coefs,
+  nsim = 20,
+  output = "network"
+)
+
+plot(sim1[[19]])
+
+network_summary(sim1)
+
+##################################### Berlusconi 2021 ################################
+
+# Phase 1 base
+
+# This one does not seem to produce valid networks, likely due to missing multiplex tie 
+# information and other attribute related info?
+
+n <- 63
+
+n2 <- network.initialize(n,
+                         directed = FALSE)
+
+n2 %v% "role" <- sample(c("A", "B", "C", "D"),
+                        n, TRUE, prob = c(8, 32, 15, 8))
+n2 %v% "stat" <- sample(c("A", "B"),
+                        n, TRUE, prob = c(6, 3))
+
+form <- n2 ~
+  edges +
+  nodematch("role") +
+  nodefactor("stat") +
+  gwdegree(0, fixed = TRUE) +
+  gwesp(0, fixed = TRUE) #+
+  #gwdsp(0, fixed = TRUE)
+  
+coefs <- c(
+  edges = -4,
+  nodematch.role = 0.6,
+  nodefactor.stat.B = 0.5,
+  gwdeg.fixed = 2.87,
+  gwesp.fixed = 1.81#,
+  #gwdsp.fixed = 0
+)
+
+sim2 <- simulate(
+  form,
+  coef = coefs,
+  nsim = 20,
+  output = "network"
+)
+
+plot(sim2[[1]])
+
+network_summary(sim2)
 
 
 ########################################## Florentine Families ######################################
