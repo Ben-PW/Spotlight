@@ -182,6 +182,11 @@ network_summary(sim1)
 # This one does not seem to produce valid networks, likely due to missing multiplex tie 
 # information and other attribute related info?
 
+# Yes, ERGM terms compete with each other. By removing some terms and keeping the rest
+# constant, it can result in very different looking networks
+
+# This is going to have to resemble Robins et al. 2004 in approach more than I thought
+
 n <- 63
 
 n2 <- network.initialize(n,
@@ -196,17 +201,17 @@ form <- n2 ~
   edges +
   nodematch("role") +
   nodefactor("stat") +
-  gwdegree(0, fixed = TRUE) +
-  gwesp(0, fixed = TRUE) #+
-  #gwdsp(0, fixed = TRUE)
+  gwdegree(0.3, fixed = TRUE) +
+  gwesp(0.3, fixed = TRUE) #+
+  #gwdsp(0.3, fixed = TRUE) # including gwdsp results in highly centralised
   
 coefs <- c(
-  edges = -4,
+  edges = -5.5,
   nodematch.role = 0.6,
   nodefactor.stat.B = 0.5,
   gwdeg.fixed = 2.87,
-  gwesp.fixed = 1.81#,
-  #gwdsp.fixed = 0
+  gwesp.fixed = 1.81 #,
+  #gwdsp.fixed = 0.2
 )
 
 sim2 <- simulate(
@@ -219,6 +224,96 @@ sim2 <- simulate(
 plot(sim2[[1]])
 
 network_summary(sim2)
+
+################################# Diviak et al., 2019 #############################
+
+n <- 32
+
+n4 <- network.initialize(n,
+                         directed = FALSE)
+
+n4 %v% "stat" <- sample(c("A", "B"),
+                   n, TRUE, prob = c(1, 1))
+
+form <- n4 ~
+  edges +
+  gwdegree(0, fixed = TRUE) +
+  gwesp(0, fixed = TRUE) +
+  gwdsp(0, fixed = TRUE) +
+  nodefactor("stat") +
+  nodematch("stat")
+
+coefs <- c(
+  edges = -3,
+  gwdeg.fixed = -1,
+  gwesp.fixed = 0.7,
+  gwdsp.fixed = 0.1,
+  nodefactor.stat.B = 0.8,
+  nodematch.stat = -0.5
+)
+
+sim4 <- simulate(
+  form,
+  coef = coefs,
+  nsim = 20,
+  output = "network"
+)
+
+plot(sim4[[1]])
+
+network_summary(sim4)
+
+################################## 'Low trust' archetype ############################
+
+# In theory, a low trust network could take two forms, a cell structure with sparse
+# inter-group connections, or perhaps a more centralised network with low triadic 
+# closure
+# The expanded 9/11 terrorist network might be a good example here, a dense cluster
+# in the hijacking cell, with very sparse connections outside it, with some highly
+# central figures
+# In a larger network the PIRA stage 3 example holds, significant within-brigade
+# clustering, with sparse connections outside that and some very highly centralised 
+# figures
+
+# This proves quite difficult to specify manually, however...
+
+n <- 60
+
+n3 <- network.initialize(n,
+                         directed = FALSE)
+
+n3 %v% "role" <- sample(c("A", "B", "C", "D"),
+                        n, TRUE, prob = c(8, 32, 15, 8))
+n3 %v% "stat" <- sample(c("A", "B"),
+                        n, TRUE, prob = c(6, 3))
+
+form <- n3 ~
+  edges +
+  nodematch("role") +
+  nodefactor("stat") +
+  gwdegree(0.7, fixed = TRUE) +
+  gwesp(0.3, fixed = TRUE) +
+  gwdsp(0.3, fixed = TRUE) # would expect gwdsp to be significant in this case
+
+coefs <- c(
+  edges = -6,
+  nodematch.role = 3,
+  nodefactor.stat.B = 0,
+  gwdeg.fixed = -2,
+  gwesp.fixed = 2,
+  gwdsp.fixed = 0.3
+)
+
+sim3 <- simulate(
+  form,
+  coef = coefs,
+  nsim = 20,
+  output = "network"
+)
+
+plot(sim3[[4]])
+
+network_summary(sim3)
 
 
 ########################################## Florentine Families ######################################
