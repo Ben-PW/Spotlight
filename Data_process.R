@@ -291,12 +291,12 @@ form <- n3 ~
   edges +
   nodematch("role") +
   nodefactor("stat") +
-  gwdegree(0.7, fixed = TRUE) +
+  gwdegree(0, fixed = TRUE) +
   gwesp(0.3, fixed = TRUE) +
   gwdsp(0.3, fixed = TRUE) # would expect gwdsp to be significant in this case
 
 coefs <- c(
-  edges = -6,
+  edges = -6.5,
   nodematch.role = 3,
   nodefactor.stat.B = 0,
   gwdeg.fixed = -2,
@@ -311,9 +311,49 @@ sim3 <- simulate(
   output = "network"
 )
 
-plot(sim3[[4]])
+plot(sim3[[5]])
 
 network_summary(sim3)
+
+############################# Fully artificial specifications ########################
+
+n <- 100
+
+n1 <- network.initialize(n,
+                         directed = FALSE)
+
+n1 %v% "A" <- sample(c("A", "B", "C", "D"),
+                        n, TRUE, prob = c(8, 32, 15, 8))
+n1 %v% "B" <- sample(c("A", "B"),
+                        n, TRUE, prob = c(6, 3))
+
+form <- n1 ~
+  edges +
+  nodematch("A") +
+  nodefactor("B") +
+  gwdegree(0, fixed = TRUE) +
+  gwesp(0, fixed = TRUE) +
+  gwdsp(0, fixed = TRUE) 
+
+coefs <- c(
+  edges = -6,
+  nodematch.role = 3,
+  nodefactor.stat.B = 0,
+  gwdeg.fixed = -2,
+  gwesp.fixed = 2,
+  gwdsp.fixed = 0.3
+)
+
+sim <- simulate(
+  form,
+  coef = coefs,
+  nsim = 20,
+  output = "network"
+)
+
+plot(sim[[4]])
+
+network_summary(sim)
 
 
 ########################################## Florentine Families ######################################
