@@ -170,8 +170,11 @@ sim1 <- simulate(
   nsim = 20,
   output = "network"
 )
+par(mfrow = c(4, 5), mar = c(0.2, 0.2, 1, 0.2))
 
-plot(sim1[[19]])
+for (i in 1:20) {
+  plot(sim1[[i]], main = paste0("sim ", i))
+}
 
 network_summary(sim1)
 
@@ -263,6 +266,19 @@ plot(sim4[[1]])
 
 network_summary(sim4)
 
+###################################### Sim params ################################
+
+# gwdegree: -1.24 : 3.93
+# nodematch: -2.65 : 3.66
+# nodefactor: -2.7 : 1.9
+# gwesp: 0.27 : 2.47
+# edges: -12.45 : 3.21
+# gwdsp: -0.69 : 0.66
+# size: 6 : 1036
+# density: 0.0066 : 0.47
+
+# fixing density and abandoning the edges parameter will be better
+
 ################################## 'Low trust' archetype ############################
 
 # In theory, a low trust network could take two forms, a cell structure with sparse
@@ -277,13 +293,71 @@ network_summary(sim4)
 
 # This proves quite difficult to specify manually, however...
 
+# Update: Below specification is useful for producing cell like structures, slightly
+# negative gwdsp means inter-group connections are sparse, but triadic closure
+# encourages clustering within cells
+
+#form <- n3 ~
+#  edges +
+#  nodematch("role") +
+#  nodefactor("stat") +
+#  gwdegree(0.3, fixed = TRUE) +
+#  gwesp(0.3, fixed = TRUE) +
+#  gwdsp(0.3, fixed = TRUE) # would expect gwdsp to be significant in this case
+
+#coefs <- c(
+#  edges = -5.7,
+#  nodematch.role = 1.5,
+#  nodefactor.stat.B = 0,
+#  gwdeg.fixed = 2,
+#  gwesp.fixed = 2,
+#  gwdsp.fixed = -0.03 # very light touch with this otherwise no LCC
+#)
+
+# The below specification resulted in quite nice looking cell structure
+# Groups were constrained to be equal sizes, produced more pronounced
+# /visual clustering
+
+#n3 %v% "role" <- sample(c("A", "B", "C", "D"),
+#                        n, TRUE, prob = c(8, 8, 8, 8))
+#n3 %v% "stat" <- sample(c("A", "B"),
+#                        n, TRUE, prob = c(6, 3))
+
+#form <- n3 ~
+#  edges +
+#  nodematch("role") +
+#  nodefactor("stat") +
+#  gwdegree(0.3, fixed = TRUE) +
+#  gwesp(0.3, fixed = TRUE) +
+#  gwdsp(0.3, fixed = TRUE) # would expect gwdsp to be significant in this case
+
+#coefs <- c(
+#  edges = -5.7,
+#  nodematch.role = 2,
+#  nodefactor.stat.B = 0,
+#  gwdeg.fixed = 2,
+#  gwesp.fixed = 2,
+#  gwdsp.fixed = -0.02
+#)
+
+# Below specification is nice for slightly sparser networks
+#coefs <- c(
+#  edges = -5.3,
+#  nodematch.role = 1.7,
+#  nodefactor.stat.B = 0,
+#  gwdeg.fixed = 1.7,
+#  gwesp.fixed = 1.5,
+#  gwdsp.fixed = -0.02
+#)
+
+
 n <- 60
 
 n3 <- network.initialize(n,
                          directed = FALSE)
 
-n3 %v% "role" <- sample(c("A", "B", "C", "D"),
-                        n, TRUE, prob = c(8, 32, 15, 8))
+n3 %v% "role" <- sample(c("A", "B", "C"),
+                        n, TRUE, prob = c(8, 8, 8))
 n3 %v% "stat" <- sample(c("A", "B"),
                         n, TRUE, prob = c(6, 3))
 
@@ -291,17 +365,26 @@ form <- n3 ~
   edges +
   nodematch("role") +
   nodefactor("stat") +
-  gwdegree(0, fixed = TRUE) +
+  gwdegree(0.3, fixed = TRUE) +
   gwesp(0.3, fixed = TRUE) +
-  gwdsp(0.3, fixed = TRUE) # would expect gwdsp to be significant in this case
+  gwdsp(0.3, fixed = TRUE) # w
 
 coefs <- c(
-  edges = -6.5,
-  nodematch.role = 3,
+  edges = -5.1,
+  nodematch.role = 1.7,
   nodefactor.stat.B = 0,
-  gwdeg.fixed = -2,
-  gwesp.fixed = 2,
-  gwdsp.fixed = 0.3
+  gwdeg.fixed = 1.4,
+  gwesp.fixed = 1.5,
+  gwdsp.fixed = -0.025
+)
+
+coefs <- c(
+  edges = -4.9,
+  nodematch.role = 1.4,
+  nodefactor.stat.B = 0.5,
+  gwdeg.fixed = 1,
+  gwesp.fixed = 1,
+  gwdsp.fixed = -0.025
 )
 
 sim3 <- simulate(
@@ -311,7 +394,20 @@ sim3 <- simulate(
   output = "network"
 )
 
-plot(sim3[[5]])
+simulate.ergm()
+
+cols <- as.factor()
+par(mfrow = c(4, 5), mar = c(0.2, 0.2, 1, 0.2))
+
+for (i in 1:20) {
+  plot(sim3[[i]], main = paste0("sim ", i))
+}
+
+for (i in 1:20) {
+  sna::gplot.layout.kamadakawai(sim3[[i]])
+}
+
+
 
 network_summary(sim3)
 
@@ -331,8 +427,8 @@ form <- n1 ~
   edges +
   nodematch("A") +
   nodefactor("B") +
-  gwdegree(0, fixed = TRUE) +
-  gwesp(0, fixed = TRUE) +
+  gwdegree(0.1, fixed = TRUE) +
+  gwesp(0.1, fixed = TRUE) +
   gwdsp(0, fixed = TRUE) 
 
 coefs <- c(
