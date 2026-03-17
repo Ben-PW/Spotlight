@@ -283,6 +283,20 @@ network_summary(sim4)
 
 # fixing density and abandoning the edges parameter will be better
 
+#### Supervision feedback
+# Keep attributes out of primary design
+# Focus:
+# Density, centralisation
+# Density: High - Low
+# Centralisation: High - Low
+# Attribute: No effect - High effect
+# Core periph: dense, centralised
+# Cell struct: sparser, decentralised
+# Don't model archetypes directly, relate variable levels to whichever is
+# closest
+# Model whether attribute is related to spotlight or not later
+# Adding an option to save networks would be useful for replication
+
 ################################## 'Low trust' archetype ############################
 
 # In theory, a low trust network could take two forms, a cell structure with sparse
@@ -382,6 +396,16 @@ coefs <- c(
   gwdsp.fixed = -0.025
 )
 
+sim3 <- simulate(
+  form,
+  coef = coefs,
+  nsim = 20,
+  output = "network",
+  control = control.simulate.formula(
+    MCMC.maxedges = 200
+  )
+)
+
 coefs <- c(
   edges = -4.9,
   nodematch.role = 1.4,
@@ -391,24 +415,19 @@ coefs <- c(
   gwdsp.fixed = -0.025
 )
 
-sim3 <- simulate(
+sim4 <- simulate(
   form,
   coef = coefs,
   nsim = 20,
   output = "network"
 )
 
-simulate.ergm()
 
 cols <- as.factor()
 par(mfrow = c(4, 5), mar = c(0.2, 0.2, 1, 0.2))
 
 for (i in 1:20) {
-  plot(sim3[[i]], main = paste0("sim ", i))
-}
-
-for (i in 1:20) {
-  sna::gplot.layout.kamadakawai(sim3[[i]])
+  plot(sim4[[i]], main = paste0("sim ", i))
 }
 
 
@@ -437,8 +456,8 @@ form <- n1 ~
 
 coefs <- c(
   edges = -6,
-  nodematch.role = 3,
-  nodefactor.stat.B = 0,
+  nodematch.A = 3,
+  nodefactor.B.B = 0,
   gwdeg.fixed = -2,
   gwesp.fixed = 2,
   gwdsp.fixed = 0.3
@@ -451,7 +470,7 @@ sim <- simulate(
   nsim = 20,
   output = "network",
   control = control.simulate.formula(
-    MCMC.maxedges = 297
+    MCMC.maxedges = 1000
   )
 )
 
