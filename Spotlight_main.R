@@ -105,7 +105,7 @@ for (ds in names(datasets)) {
           # apply spotlight
           obs_list <- sampleSpotlight(sp_list, miss_level = ml, b = bv)
           
-          # Global metrics
+          # Calculate network level metrics
           global_rows[[kg]] <- computeMetrics(obs_list, name = ds) |>
             dplyr::mutate(
               network_label = ds,
@@ -113,10 +113,12 @@ for (ds in names(datasets)) {
               spotlight_pct = sp,
               b = bv,
               miss_level = ml
-            )
-          kg <- kg + 1L
+            ) |>
+            dplyr::mutate(source = "observed") # tag as error networks
           
-          # Node centralities
+          kg <- kg + 1L # increment counter
+          
+          # Calculate node level centralities
           node_rows[[kn]] <- computeCentralityDf(
             graph_list = obs_list,
             network_label  = ds,
@@ -124,11 +126,15 @@ for (ds in names(datasets)) {
             b = bv,
             spotlight_pct = sp,
             miss_level = ml
-            )
-          kn <- kn + 1L
+            ) |>
+            dplyr::mutate(source = "observed") # tag as error networks
           
-          # Batch save node calculations to disk
-          if ((kn - 1L) >= flush_every) {
+          kn <- kn + 1L # increment counter
+          
+          # Batch save node calculations to disk every 50 loops and 
+          # re-initialise required variables
+          
+          if ((kn - 1L) >= flush) {
             node_batch <- dplyr::bind_rows(node_rows)
             
             saveRDS(
@@ -139,9 +145,9 @@ for (ds in names(datasets)) {
               )
             )
             
-            node_rows <- list()
-            kn <- 1L
-            node_batch_id <- node_batch_id + 1L
+            node_rows <- list() # refresh list for future loops
+            kn <- 1L # reset node metrics loop counter
+            node_batch_id <- node_batch_id + 1L # increment batch counter
             gc(FALSE)
           }
           
@@ -156,8 +162,20 @@ for (ds in names(datasets)) {
   }
 }
 
-testResults <- dplyr::bind_rows(global_rows)
-nodeResults <- dplyr::bind_rows(node_rows)
+# End of loop flush if results remain but kn < flush
+if (length(node_rows) > 0) {
+  node_batch <- dplyr::bind_rows(node_rows)
+  saveRDS(
+    node_batch,
+    file = here::here(
+      "Results", "node_results",
+      paste0("node_results_batch_", node_batch_id, ".rds")
+    )
+  )
+}
+
+graphResults <- dplyr::bind_rows(global_rows)
+#nodeResults <- dplyr::bind_rows(node_rows)
 
 #### Get baseline node centralities ####
 # Baseline don't have alpha/b/miss_level so set to NA
@@ -174,11 +192,11 @@ nodeGT <- purrr::imap_dfr(datasets, function(base_list, ds) {
     b = NA_real_,
     spotlight_pct = NA_real_,
     miss_level = NA_real_
-  ) |> dplyr::mutate(source = "true")
+  ) |> 
+    dplyr::mutate(source = "true")
 })
 
-# Tag observed nodes
-nodeResults <- nodeResults |> dplyr::mutate(source = "observed")
+
 
 
 
