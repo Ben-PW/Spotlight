@@ -39,6 +39,10 @@ network_summary <- function(net_list) {
   )
 }
 
+getEdgeNo <- function(nodes, dens){
+  round( dens * ((nodes * (nodes-1)) /2 ) )
+}
+
 ##### Smith & Papachristos 2016 based network #####
 
 # Approximate terms of criminal network from the paper
