@@ -49,6 +49,27 @@ datasets <- lapply(datasets, IDNodes)
 GTAll <- Map(computeMetrics, datasets, names(datasets)) |>
   dplyr::bind_rows()
 
+#################################### Begin sim ##################################
+
+#### Check file paths ####
+
+out_dir <- here::here("Results", "node_results")
+
+# create if missing
+if (!dir.exists(out_dir)) {
+  dir.create(out_dir, recursive = TRUE)
+}
+
+# wipe folder before sim
+if (length(list.files(out_dir, full.names = TRUE)) > 0) {
+  ans <- readline(prompt = "Warning: Files detected in node results folder. Y = delete and continue")
+  if (tolower(ans) %in% "y") {
+    file.remove(list.files(out_dir, full.names = TRUE))
+  } else {
+    stop("Exiting")
+  }
+}
+
 #### Spotlight params ####
 
 # Basic params for testing
@@ -57,12 +78,14 @@ miss_levels <- c(0.10, 0.20) # missingness levels
 alphas <- c(0, 0.5, 1, 2) # exponential degree bias
 bs <- c(1, 2, 4) # weights for non-spotlit ties
 
-#### Begin sim ####
+#### Loop setup ####
 
 global_rows <- list()
 node_rows <- list()
 kg <- 1L # metrics list counter
 kn <- 1L # nodes counter
+flush <- 50L # save increments
+node_batch_id <- 1L # batch ids
 
 set.seed(123)
 
@@ -101,8 +124,26 @@ for (ds in names(datasets)) {
             b = bv,
             spotlight_pct = sp,
             miss_level = ml
-          )
+            )
           kn <- kn + 1L
+          
+          # Batch save node calculations to disk
+          if ((kn - 1L) >= flush_every) {
+            node_batch <- dplyr::bind_rows(node_rows)
+            
+            saveRDS(
+              node_batch,
+              file = here::here(
+                "Results", "node_results",
+                paste0("node_results_batch_", node_batch_id, ".rds")
+              )
+            )
+            
+            node_rows <- list()
+            kn <- 1L
+            node_batch_id <- node_batch_id + 1L
+            gc(FALSE)
+          }
           
           rm(obs_list)
           gc(FALSE) # immediately bin from memory
