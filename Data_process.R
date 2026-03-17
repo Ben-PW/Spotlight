@@ -440,11 +440,15 @@ coefs <- c(
   gwdsp.fixed = 0.3
 )
 
+
 sim <- simulate(
   form,
   coef = coefs,
   nsim = 20,
-  output = "network"
+  output = "network",
+  control = control.simulate.formula(
+    MCMC.maxedges = 297
+  )
 )
 
 plot(sim[[4]])
