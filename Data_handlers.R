@@ -52,25 +52,6 @@ tagGraphs <- function(graph_list,
                        b = NA_real_,
                        miss_level = NA_real_) {
   purrr::imap(graph_list, function(g, replicate_id) {
-    igraph::graph_attr(g, "dataset") <- dataset
-    igraph::graph_attr(g, "replicate_id") <- as.integer(replicate_id)
-    igraph::graph_attr(g, "source") <- source
-    igraph::graph_attr(g, "alpha") <- alpha
-    igraph::graph_attr(g, "spotlight_pct") <- spotlight_pct
-    igraph::graph_attr(g, "b") <- b
-    igraph::graph_attr(g, "miss_level") <- miss_level
-    g
-  })
-}
-
-tagGraphs <- function(graph_list,
-                       dataset,
-                       source,
-                       alpha = NA_real_,
-                       spotlight_pct = NA_real_,
-                       b = NA_real_,
-                       miss_level = NA_real_) {
-  purrr::imap(graph_list, function(g, replicate_id) {
     replicate_id <- as.integer(replicate_id)
     
     igraph::graph_attr(g, "dataset") <- dataset
