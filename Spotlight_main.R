@@ -40,14 +40,35 @@ datasets <- lapply(datasets, function(netlist) {
 
 datasets <- lapply(datasets, undirect)
 
+##### Assign ID to networks #####
+
+datasets <- purrr::imap(datasets, function(graph_list, ds) {
+  tagGraphs_init(
+    graph_list = graph_list,
+    dataset = ds,
+    source = "true"
+  )
+})
+
 ##### Assign ID to nodes #####
 
 datasets <- lapply(datasets, IDNodes)
 
-##### Compute Ground Truth metrics #####
+##### Compute ground truth metrics #####
 
-GTAll <- Map(computeMetrics, datasets, names(datasets)) |>
-  dplyr::bind_rows()
+graphGT <- purrr::map_dfr(datasets, computeMetrics)
+
+nodeGT <- purrr::map_dfr(datasets, function(graph_list) {
+  graph_list <- lapply(graph_list, function(g) {
+    if (is.null(igraph::V(g)$Spotlight)) { #compute centrality expects spotlight
+      igraph::V(g)$Spotlight <- 0L
+    }
+    g
+  })
+  computeCentralityDf(graph_list)
+})
+
+
 
 #################################### Begin sim ##################################
 
@@ -62,7 +83,7 @@ if (!dir.exists(out_dir)) {
 
 # wipe folder before sim
 if (length(list.files(out_dir, full.names = TRUE)) > 0) {
-  ans <- readline(prompt = "Warning: Files detected in node results folder. Y = delete and continue")
+  ans <- readline(prompt = "Warning: Files detected in node results folder. Y = delete and continue:")
   if (tolower(ans) %in% "y") {
     file.remove(list.files(out_dir, full.names = TRUE))
   } else {
@@ -105,29 +126,24 @@ for (ds in names(datasets)) {
           # apply spotlight
           obs_list <- sampleSpotlight(sp_list, miss_level = ml, b = bv)
           
+          # store simulation parameters
+          obs_list <- tagGraphs(
+            graph_list = obs_list,
+            dataset = ds,
+            source = "observed",
+            alpha = a,
+            spotlight_pct = sp,
+            b = bv,
+            miss_level = ml
+          )
+          
           # Calculate network level metrics
-          global_rows[[kg]] <- computeMetrics(obs_list, name = ds) |>
-            dplyr::mutate(
-              network_label = ds,
-              alpha = a,
-              spotlight_pct = sp,
-              b = bv,
-              miss_level = ml
-            ) |>
-            dplyr::mutate(source = "observed") # tag as error networks
+          global_rows[[kg]] <- computeMetrics(obs_list) 
           
           kg <- kg + 1L # increment counter
           
           # Calculate node level centralities
-          node_rows[[kn]] <- computeCentralityDf(
-            graph_list = obs_list,
-            network_label  = ds,
-            alpha = a,
-            b = bv,
-            spotlight_pct = sp,
-            miss_level = ml
-            ) |>
-            dplyr::mutate(source = "observed") # tag as error networks
+          node_rows[[kn]] <- computeCentralityDf(obs_list)
           
           kn <- kn + 1L # increment counter
           
@@ -180,21 +196,21 @@ graphResults <- dplyr::bind_rows(global_rows)
 #### Get baseline node centralities ####
 # Baseline don't have alpha/b/miss_level so set to NA
 
-nodeGT <- purrr::imap_dfr(datasets, function(base_list, ds) {
-  
-  # Temp spotlight variable as computeCentralityDf expects it
-  base_tmp <- lapply(base_list, function(g) { igraph::V(g)$Spotlight <- 0L; g })
-  
-  computeCentralityDf(
-    graph_list = base_tmp,
-    network_label = ds,
-    alpha = NA_real_,
-    b = NA_real_,
-    spotlight_pct = NA_real_,
-    miss_level = NA_real_
-  ) |> 
-    dplyr::mutate(source = "true")
-})
+#nodeGT <- purrr::imap_dfr(datasets, function(base_list, ds) {
+#  
+#  # Temp spotlight variable as computeCentralityDf expects it
+#  base_tmp <- lapply(base_list, function(g) { igraph::V(g)$Spotlight <- 0L; g })
+#  
+#  computeCentralityDf(
+#    graph_list = base_tmp,
+#    network_label = ds,
+#    alpha = NA_real_,
+#    b = NA_real_,
+#    spotlight_pct = NA_real_,
+#    miss_level = NA_real_
+#  ) |> 
+#    dplyr::mutate(source = "true")
+#})
 
 
 

@@ -492,7 +492,7 @@ network::set.vertex.attribute(flo,
 #flo %v% "wealth" <- c(10,36,27,146,55,44,20,8,42,103,48,49,10,48,32,3)
 
 flo1 <- ergm::ergm(flo ~ edges + absdiff("wealth"))
-rm(flo)
+#rm(flo)
 
 ####################################### Books network ##################################
 
@@ -517,6 +517,6 @@ summary(acct1)
 acct2 <- ergm::ergm(ac2 ~ edges)
 summary(acct2)
 
-rm(ac1, ac2)
+#rm(ac1, ac2)
 
 

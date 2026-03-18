@@ -10,7 +10,7 @@
 
 undirect <- function(graph_list) {
   lapply(graph_list, function(g) {
-    if (igraph::is.directed(g)) {
+    if (igraph::is_directed(g)) {
       g <- igraph::as.undirected(g, mode = "collapse")
     }
     g
@@ -31,74 +31,134 @@ IDNodes <- function(graph_list){
 # Note to self
 # I think I need to address the rounding here?
 
-computeMetrics <- function(graph_list, name) {
-  data.frame(
-    id = paste0(name,"_", seq_along(graph_list)),
-    
-    density = sapply(graph_list, function(g) {
-      igraph::edge_density(g, loops = FALSE)
-    }),
-    
-    dcent = sapply(graph_list, function(g) {
-      cent <- igraph::centr_degree(g, mode = "all", normalized = TRUE)
-      cent$centralization
-    }),
-    
-    clustering = sapply(graph_list, function(g) {
-      igraph::transitivity(g, type = "global")
-    }),
-    
-    size = sapply(graph_list, igraph::vcount),
-    
-    APL = sapply(graph_list, function(g) {
-      # all‐pairs shortest paths; exclude Infs
-      dist_mat <- igraph::distances(g, mode = "all")
-      mean(dist_mat[is.finite(dist_mat)], na.rm = TRUE)
-    })
-  )
+#computeMetrics <- function(graph_list, name) {
+#  data.frame(
+#    id = paste0(name,"_", seq_along(graph_list)),
+#    
+#    density = sapply(graph_list, function(g) {
+#      igraph::edge_density(g, loops = FALSE)
+#    }),
+#    
+#    dcent = sapply(graph_list, function(g) {
+#      cent <- igraph::centr_degree(g, mode = "all", normalized = TRUE)
+#      cent$centralization
+#    }),
+#    
+#    clustering = sapply(graph_list, function(g) {
+#      igraph::transitivity(g, type = "global")
+#    }),
+#    
+#    size = sapply(graph_list, igraph::vcount),
+#    
+#    APL = sapply(graph_list, function(g) {
+#      # all‐pairs shortest paths; exclude Infs
+#      dist_mat <- igraph::distances(g, mode = "all")
+#      mean(dist_mat[is.finite(dist_mat)], na.rm = TRUE)
+#    })
+#  )
+#}
+
+computeMetrics <- function(graph_list) {
+  purrr::map_dfr(graph_list, function(g) {
+    tibble::tibble(
+      dataset = igraph::graph_attr(g, "dataset"),
+      replicate_id = igraph::graph_attr(g, "replicate_id"),
+      source = igraph::graph_attr(g, "source"),
+      alpha = igraph::graph_attr(g, "alpha"),
+      spotlight_pct = igraph::graph_attr(g, "spotlight_pct"),
+      b = igraph::graph_attr(g, "b"),
+      miss_level = igraph::graph_attr(g, "miss_level"),
+      stage = igraph::graph_attr(g, "stage"),
+      graph_id = igraph::graph_attr(g, "graph_id"),
+      
+      density = igraph::edge_density(g, loops = FALSE),
+      dcent = igraph::centr_degree(g, mode = "all", normalized = TRUE)$centralization,
+      clustering = igraph::transitivity(g, type = "global"),
+      size = igraph::vcount(g),
+      APL = {
+        dist_mat <- igraph::distances(g, mode = "all")
+        mean(dist_mat[is.finite(dist_mat)], na.rm = TRUE)
+      }
+    )
+  })
 }
 
 
-computeCentralityDf <- function(graph_list,
-                                network_label,
-                                alpha,
-                                b,
-                                spotlight_pct,
-                                miss_level,
-                                normalized = FALSE) {
-  
-  purrr::imap_dfr(graph_list, function(g, net_id) {
-    
-    Degree <- igraph::degree(g, mode = "all", normalized = normalized)
-    Betweenness <- igraph::betweenness(
-      g,
-      directed = igraph::is_directed(g), # this is handy if interested in directed later
-      normalized = normalized
-    )
-    Closeness <- igraph::closeness(
-      g,
-      mode = "all",
-      normalized = normalized # normalised for now but that's cosmetic
-    )
-    Eigenvector <- igraph::eigen_centrality(
-      g,
-      directed = igraph::is_directed(g)
-    )$vector
-    
-    # Write results to tibble
+#computeCentralityDf <- function(graph_list,
+#                                network_label,
+#                                alpha,
+#                                b,
+#                                spotlight_pct,
+#                                miss_level,
+#                                normalized = FALSE) {
+#  
+#  purrr::imap_dfr(graph_list, function(g, net_id) {
+#    
+#    Degree <- igraph::degree(g, mode = "all", normalized = normalized)
+#    Betweenness <- igraph::betweenness(
+#      g,
+#      directed = igraph::is_directed(g), # this is handy if interested in directed later
+#      normalized = normalized
+#    )
+#    Closeness <- igraph::closeness(
+#      g,
+#      mode = "all",
+#      normalized = normalized # normalised for now but that's cosmetic
+#    )
+#    Eigenvector <- igraph::eigen_centrality(
+#      g,
+#      directed = igraph::is_directed(g)
+#    )$vector
+#    
+#    # Write results to tibble
+#    tibble::tibble(
+#      net_id = net_id,
+#      network_label = network_label,
+#      alpha = alpha,
+#      b = b,
+#      spotlight_pct = spotlight_pct,
+#      miss_level = miss_level,
+#      NodeID = as.integer(igraph::V(g)$NodeID),
+#      Spotlight = as.integer(igraph::V(g)$Spotlight),
+#      Degree = Degree,
+#      Betweenness = Betweenness,
+#      Closeness = Closeness,
+#      Eigenvector = Eigenvector
+#    )
+#  })
+#}
+
+computeCentralityDf <- function(graph_list, normalized = FALSE) {
+  purrr::map_dfr(graph_list, function(g) {
     tibble::tibble(
-      net_id = net_id,
-      network_label = network_label,
-      alpha = alpha,
-      b = b,
-      spotlight_pct = spotlight_pct,
-      miss_level = miss_level,
+      dataset = igraph::graph_attr(g, "dataset"),
+      replicate_id = igraph::graph_attr(g, "replicate_id"),
+      source = igraph::graph_attr(g, "source"),
+      alpha = igraph::graph_attr(g, "alpha"),
+      spotlight_pct = igraph::graph_attr(g, "spotlight_pct"),
+      b = igraph::graph_attr(g, "b"),
+      miss_level = igraph::graph_attr(g, "miss_level"),
+      stage = igraph::graph_attr(g, "stage"),
+      graph_id = igraph::graph_attr(g, "graph_id"),
+      
       NodeID = as.integer(igraph::V(g)$NodeID),
       Spotlight = as.integer(igraph::V(g)$Spotlight),
-      Degree = Degree,
-      Betweenness = Betweenness,
-      Closeness = Closeness,
-      Eigenvector = Eigenvector
+      
+      Degree = igraph::degree(g, mode = "all", normalized = normalized),
+      Betweenness = igraph::betweenness(
+        g,
+        directed = igraph::is_directed(g),
+        normalized = normalized
+      ),
+      Closeness = igraph::closeness(
+        g,
+        mode = "all",
+        normalized = normalized
+      ),
+      Eigenvector = igraph::eigen_centrality(
+        g,
+        directed = igraph::is_directed(g)
+      )$vector
     )
   })
 }
