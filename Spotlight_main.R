@@ -10,7 +10,7 @@
 source('Data_process.R') # ERGMs fit to data
 source('Compute_NetStats.R') # Assorted helper functions
 source('Spotlight_function.R') # Spotlight relevant functions
-source('Data_handlers.R') # Not written yet
+source('Data_handlers.R') # Network ID system and associated handlers
 
 #### Simulate networks ####
 
@@ -68,12 +68,7 @@ nodeGT <- purrr::map_dfr(datasets, function(graph_list) {
   computeCentralityDf(graph_list)
 })
 
-
-
-#################################### Begin sim ##################################
-
 #### Check file paths ####
-
 out_dir <- here::here("Results", "node_results")
 
 # create if missing
@@ -90,6 +85,8 @@ if (length(list.files(out_dir, full.names = TRUE)) > 0) {
     stop("Exiting")
   }
 }
+
+#################################### Begin sim ##################################
 
 #### Spotlight params ####
 
@@ -109,6 +106,8 @@ flush <- 50L # save increments
 node_batch_id <- 1L # batch ids
 
 set.seed(123)
+
+##### Begin loop #####
 
 for (ds in names(datasets)) {
   
@@ -190,28 +189,12 @@ if (length(node_rows) > 0) {
   )
 }
 
+# Collect network level stats
 graphResults <- dplyr::bind_rows(global_rows)
-#nodeResults <- dplyr::bind_rows(node_rows)
 
-#### Get baseline node centralities ####
-# Baseline don't have alpha/b/miss_level so set to NA
 
-#nodeGT <- purrr::imap_dfr(datasets, function(base_list, ds) {
-#  
-#  # Temp spotlight variable as computeCentralityDf expects it
-#  base_tmp <- lapply(base_list, function(g) { igraph::V(g)$Spotlight <- 0L; g })
-#  
-#  computeCentralityDf(
-#    graph_list = base_tmp,
-#    network_label = ds,
-#    alpha = NA_real_,
-#    b = NA_real_,
-#    spotlight_pct = NA_real_,
-#    miss_level = NA_real_
-#  ) |> 
-#    dplyr::mutate(source = "true")
-#})
 
+################################# Loop Complete ###############################
 
 
 
