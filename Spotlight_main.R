@@ -187,13 +187,31 @@ if (length(node_rows) > 0) {
       paste0("node_results_batch_", node_batch_id, ".rds")
     )
   )
+  rm(node_batch)
 }
 
 # Collect network level stats
 graphResults <- dplyr::bind_rows(global_rows)
 
+# Cleanup
+
+rm(a, 
+   alphas, 
+   bs, 
+   bv, 
+   ds, 
+   flush, 
+   kg, 
+   kn, 
+   miss_levels, 
+   ml, 
+   node_batch_id, 
+   out_dir,
+   sp,
+   spotlight_pcts)
 
 
+print("Loop completed and environment cleaned")
 ################################# Loop Complete ###############################
 
 
