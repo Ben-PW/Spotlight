@@ -69,18 +69,27 @@ nodeGT <- purrr::map_dfr(datasets, function(graph_list) {
 })
 
 #### Check file paths ####
-out_dir <- here::here("Results", "node_results")
+node_out_dir <- here::here("Results", "node_results")
+net_out_dir <- here::here("Results", "network_results")
 
 # create if missing
-if (!dir.exists(out_dir)) {
-  dir.create(out_dir, recursive = TRUE)
+if (!dir.exists(node_out_dir)) {
+  dir.create(node_out_dir, recursive = TRUE)
 }
 
+if (!dir.exists(net_out_dir)) {
+  dir.create(net_out_dir, recursive = TRUE)
+}
+
+nodefiles <- length(list.files(node_out_dir, full.names = TRUE))
+netfiles <- length(list.files(net_out_dir, full.names = TRUE))
+
 # wipe folder before sim
-if (length(list.files(out_dir, full.names = TRUE)) > 0) {
-  ans <- readline(prompt = "Warning: Files detected in node results folder. Y = delete and continue:")
+if (nodefiles + netfiles > 0) {
+  ans <- readline(prompt = "Warning: Files detected in results folders. Y = delete and continue:")
   if (tolower(ans) %in% "y") {
-    file.remove(list.files(out_dir, full.names = TRUE))
+    file.remove(list.files(node_out_dir, full.names = TRUE))
+    file.remove(list.files(net_out_dir, full.names = TRUE))
   } else {
     stop("Exiting")
   }
@@ -91,10 +100,10 @@ if (length(list.files(out_dir, full.names = TRUE)) > 0) {
 #### Spotlight params ####
 
 # Basic params for testing
-spotlight_pcts <- c(0.01, 0.10) # % nodes spotlit
-miss_levels <- c(0.10, 0.20) # missingness levels
-alphas <- c(0, 0.5, 1, 2) # exponential degree bias
-bs <- c(1, 2, 4) # weights for non-spotlit ties
+spotlight_pcts <- c(0.01, 0.025, 0.05, 0.075, 0.10) # % nodes spotlit
+miss_levels <- c(0.10, 0.20, 0.30, 0.40, 0.50) # missingness levels
+alphas <- c(0, 0.5, 1, 2, 3) # exponential degree bias
+bs <- c(1, 2, 3, 4) # weights for non-spotlit ties
 
 #### Loop setup ####
 
@@ -103,7 +112,8 @@ node_rows <- list()
 kg <- 1L # metrics list counter
 kn <- 1L # nodes counter
 flush <- 50L # save increments
-node_batch_id <- 1L # batch ids
+node_batch_id <- 1L # node batch ids
+network_batch_id <- 1L # network batch ids
 
 set.seed(123)
 
@@ -141,6 +151,27 @@ for (ds in names(datasets)) {
           
           kg <- kg + 1L # increment counter
           
+          # Batch save network calculations to disk every 50 loops and 
+          # re-initialise required variables
+          
+          if ((kg - 1L) >= flush) {
+            network_batch <- dplyr::bind_rows(global_rows)
+            
+            saveRDS(
+              network_batch,
+              file = here::here(
+                "Results", "network_results",
+                paste0("network_results_batch_", network_batch_id, ".rds")
+              )
+            )
+            
+            global_rows <- list() # refresh list for future loops
+            kg <- 1L # reset node metrics loop counter
+            network_batch_id <- network_batch_id + 1L # increment batch counter
+            rm(network_batch)
+            gc(FALSE)
+          }
+          
           # Calculate node level centralities
           node_rows[[kn]] <- computeCentralityDf(obs_list)
           
@@ -163,11 +194,12 @@ for (ds in names(datasets)) {
             node_rows <- list() # refresh list for future loops
             kn <- 1L # reset node metrics loop counter
             node_batch_id <- node_batch_id + 1L # increment batch counter
+            rm(node_batch)
             gc(FALSE)
           }
           
           rm(obs_list)
-          gc(FALSE) # immediately bin from memory
+          #gc(FALSE) # immediately bin from memory
         }
       }
       
@@ -175,6 +207,19 @@ for (ds in names(datasets)) {
       gc(FALSE)
     }
   }
+}
+
+# End of loop flush if results remain but kg < flush
+if (length(global_rows) > 0) {
+  network_batch <- dplyr::bind_rows(global_rows)
+  saveRDS(
+    network_batch,
+    file = here::here(
+      "Results", "network_results",
+      paste0("network_results_batch_", network_batch_id, ".rds")
+    )
+  )
+  rm(network_batch)
 }
 
 # End of loop flush if results remain but kn < flush
@@ -191,7 +236,7 @@ if (length(node_rows) > 0) {
 }
 
 # Collect network level stats
-graphResults <- dplyr::bind_rows(global_rows)
+#graphResults <- dplyr::bind_rows(global_rows)
 
 # Cleanup
 
@@ -206,12 +251,14 @@ rm(a,
    miss_levels, 
    ml, 
    node_batch_id, 
-   out_dir,
+   node_out_dir,
+   net_out_dir,
    sp,
    spotlight_pcts)
 
 
 print("Loop completed and environment cleaned")
+
 ################################# Loop Complete ###############################
 
 

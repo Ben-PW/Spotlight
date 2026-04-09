@@ -68,7 +68,7 @@ computeMetrics <- function(graph_list) {
       spotlight_pct = igraph::graph_attr(g, "spotlight_pct"),
       b = igraph::graph_attr(g, "b"),
       miss_level = igraph::graph_attr(g, "miss_level"),
-      stage = igraph::graph_attr(g, "stage"),
+      #stage = igraph::graph_attr(g, "stage"),
       graph_id = igraph::graph_attr(g, "graph_id"),
       
       density = igraph::edge_density(g, loops = FALSE),
@@ -138,7 +138,7 @@ computeCentralityDf <- function(graph_list, normalized = FALSE) {
       spotlight_pct = igraph::graph_attr(g, "spotlight_pct"),
       b = igraph::graph_attr(g, "b"),
       miss_level = igraph::graph_attr(g, "miss_level"),
-      stage = igraph::graph_attr(g, "stage"),
+      #stage = igraph::graph_attr(g, "stage"),
       graph_id = igraph::graph_attr(g, "graph_id"),
       
       NodeID = as.integer(igraph::V(g)$NodeID),
