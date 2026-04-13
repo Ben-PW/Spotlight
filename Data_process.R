@@ -39,236 +39,30 @@ network_summary <- function(net_list) {
   )
 }
 
-getEdgeNo <- function(nodes, dens){
-  round( dens * ((nodes * (nodes-1)) /2 ) )
+# Uses specified average degree to determine number of edges added to network
+getEdgeNo <- function(nodes, av_deg) {
+  round((av_deg * nodes) / 2)
 }
 
-##### Smith & Papachristos 2016 based network #####
+# Adds random ties to network with number specified by average degree
+setDensity <- function(net, av_deg) {
+  nodes <- network.size(net)
+  possible <- utils::combn(nodes, 2)
+  m <- getEdgeNo(nodes = nodes, av_deg = av_deg)
+  idx <- sample(seq_len(ncol(possible)), m, replace = FALSE)
+  chosen <- possible[, idx, drop = FALSE]
+  
+  for (j in seq_len(ncol(chosen))) {
+    network::add.edge(net, chosen[1, j], chosen[2, j])
+  }
+  net
+}
 
-# Approximate terms of criminal network from the paper
-# Alt triangles
 
 library(ergm)
 library(network)
 
-n <- 1030
-n1 <- network.initialize(n,
-                         directed = FALSE)
 
-n1 %v% "kingpin" <- as.integer(seq_len(n) == sample(n, 1))
-
-n1 %v% "eth" <- sample(c("English","German","Irish","Italian","Jewish","Other"),
-                        n, TRUE, prob=c(.23,.10,.22,.27,.06,.13))
-
-form <- n1 ~ isolates + 
-  edges + 
-  nodematch("eth") + 
-  nodefactor("kingpin") +
-  gwesp(0.5, fixed = TRUE) + 
-  gwdegree(0.5, fixed = TRUE) +
-  gwdsp(0.5, fixed=TRUE)
-
-coefs <- c(
-  isolates = -10,
-  edges = -5.5,                 
-  nodematch.eth = 0.1,
-  nodefactor.kingpin = 6,
-  gwesp.fixed = 2,
-  gwdeg.fixed = 0.5,
-  gwdsp.fixed = -0.1
-)
-
-sim1 <- simulate(
-  form,
-  coef = coefs,
-  nsim = 20,
-  output = "network"
-)
-
-plot(sim1[[1]])
-
-network_summary(sim1)
-
-form2 <- n1 ~ #components + 
-  edges + 
-  nodematch("eth") + 
-  nodefactor("kingpin") +
-  gwesp(0.7, fixed = TRUE) + 
-  gwdegree(0.2, fixed = TRUE) #+
-  #gwdsp(0.5, fixed=TRUE)
-
-coefs2 <- c(
-  #components = -1,
-  edges = -8,                 
-  nodematch.eth = 0.2,
-  nodefactor.kingpin = 8,
-  gwesp.fixed = 4,
-  gwdeg.fixed = 3#,
-  #gwdsp.fixed = -0.05
-)
-
-sim2 <- simulate(
-  form2,
-  coef = coefs2,
-  nsim = 20,
-  output = "network"
-)
-
-plot(sim2[[1]])
-
-network_summary(sim2)
-
-
-# ERGM formula
-form <- n1 ~ edges +
-  nodematch("group") +
-  gwesp(0.5, fixed = TRUE) +
-  gwdegree(0.5, fixed = TRUE) +
-  nodefactor("group")
-
-coefs <- c(
-  edges = -7,         
-  nodematch.group = 1,    
-  gwesp.fixed = 2.6,
-  gwdeg.fixed = 2.6,
-  nodefactor.group.B = -0.5
-)
-
-sim1 <- simulate(
-  form,
-  coef = coefs,
-  nsim = 100,
-  output = "network"
-)
-
-plot(sim1[[1]])
-
-
-############################# Grund and Densley 2014 ###############################
-
-n <- 48
-n1 <- network.initialize(n,
-                         directed = FALSE)
-
-n1 %v% "eth" <- sample(c("D","A","B","C"),
-                       n, TRUE, prob=c(24, 11, 10, 6))
-
-form <- n1 ~ edges +
-  nodematch("eth") +
-  nodefactor("eth", levels = c("A", "B", "C")) +
-  gwesp(0, fixed = TRUE)
-
-coefs <- c(
-  edges = -4.36,                 
-  nodematch.eth = 1.12,
-  #nodefactor.eth.D = 0,
-  nodefactor.eth.A = 0.5,
-  nodefactor.eth.B = 0.49,
-  nodefactor.eth.C = 0.61,
-  gwesp.fixed = 1.16
-)
-
-sim1 <- simulate(
-  form,
-  coef = coefs,
-  nsim = 20,
-  output = "network"
-)
-par(mfrow = c(4, 5), mar = c(0.2, 0.2, 1, 0.2))
-
-for (i in 1:20) {
-  plot(sim1[[i]], main = paste0("sim ", i))
-}
-
-network_summary(sim1)
-
-##################################### Berlusconi 2021 ################################
-
-# Phase 1 base
-
-# This one does not seem to produce valid networks, likely due to missing multiplex tie 
-# information and other attribute related info?
-
-# Yes, ERGM terms compete with each other. By removing some terms and keeping the rest
-# constant, it can result in very different looking networks
-
-# This is going to have to resemble Robins et al. 2004 in approach more than I thought
-
-n <- 63
-
-n2 <- network.initialize(n,
-                         directed = FALSE)
-
-n2 %v% "role" <- sample(c("A", "B", "C", "D"),
-                        n, TRUE, prob = c(8, 32, 15, 8))
-n2 %v% "stat" <- sample(c("A", "B"),
-                        n, TRUE, prob = c(6, 3))
-
-form <- n2 ~
-  edges +
-  nodematch("role") +
-  nodefactor("stat") +
-  gwdegree(0.3, fixed = TRUE) +
-  gwesp(0.3, fixed = TRUE) #+
-  #gwdsp(0.3, fixed = TRUE) # including gwdsp results in highly centralised
-  
-coefs <- c(
-  edges = -5.5,
-  nodematch.role = 0.6,
-  nodefactor.stat.B = 0.5,
-  gwdeg.fixed = 2.87,
-  gwesp.fixed = 1.81 #,
-  #gwdsp.fixed = 0.2
-)
-
-sim2 <- simulate(
-  form,
-  coef = coefs,
-  nsim = 20,
-  output = "network"
-)
-
-plot(sim2[[1]])
-
-network_summary(sim2)
-
-################################# Diviak et al., 2019 #############################
-
-n <- 32
-
-n4 <- network.initialize(n,
-                         directed = FALSE)
-
-n4 %v% "stat" <- sample(c("A", "B"),
-                   n, TRUE, prob = c(1, 1))
-
-form <- n4 ~
-  edges +
-  gwdegree(0, fixed = TRUE) +
-  gwesp(0, fixed = TRUE) +
-  gwdsp(0, fixed = TRUE) +
-  nodefactor("stat") +
-  nodematch("stat")
-
-coefs <- c(
-  edges = -3,
-  gwdeg.fixed = -1,
-  gwesp.fixed = 0.7,
-  gwdsp.fixed = 0.1,
-  nodefactor.stat.B = 0.8,
-  nodematch.stat = -0.5
-)
-
-sim4 <- simulate(
-  form,
-  coef = coefs,
-  nsim = 20,
-  output = "network"
-)
-
-plot(sim4[[1]])
-
-network_summary(sim4)
 
 ###################################### Sim params ################################
 
@@ -368,6 +162,12 @@ network_summary(sim4)
 #  gwdsp.fixed = -0.02
 #)
 
+############################## IMPORTANT
+# gwdegree coefficient is interpreted REVERSE
+# https://environmentalpolicy.ucdavis.edu/blog/shiny-app-help-interpret-gw-degree-estimates-ergms
+# https://joss.theoj.org/papers/10.21105/joss.00036
+# https://www.sciencedirect.com/science/article/pii/S0378873306000396
+# It is interpreted as an anti-perferential attachment term apparently
 
 n <- 60
 
@@ -379,19 +179,8 @@ n3 %v% "role" <- sample(c("A", "B", "C"),
 n3 %v% "stat" <- sample(c("A", "B"),
                         n, TRUE, prob = c(6, 3))
 
-# add m random edges
-add_random_edges <- function(net, m) {
-  possible <- utils::combn(network.size(net), 2)
-  idx <- sample(seq_len(ncol(possible)), m, replace = FALSE)
-  chosen <- possible[, idx, drop = FALSE]
-  
-  for (j in seq_len(ncol(chosen))) {
-    network::add.edge(net, chosen[1, j], chosen[2, j])
-  }
-  net
-}
 
-n3 <- add_random_edges(n3, m = 100)
+n3 <- setDensity(n3, av_deg = 3)
 
 form <- n3 ~
   nodematch("role") +
@@ -441,7 +230,7 @@ for (i in 1:20) {
   plot(sim33[[i]], main = paste0("sim ", i))
 }
 
-
+summary(sim33 ~ edges)
 
 network_summary(sim3)
 
