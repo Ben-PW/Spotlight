@@ -379,8 +379,21 @@ n3 %v% "role" <- sample(c("A", "B", "C"),
 n3 %v% "stat" <- sample(c("A", "B"),
                         n, TRUE, prob = c(6, 3))
 
+# add m random edges
+add_random_edges <- function(net, m) {
+  possible <- utils::combn(network.size(net), 2)
+  idx <- sample(seq_len(ncol(possible)), m, replace = FALSE)
+  chosen <- possible[, idx, drop = FALSE]
+  
+  for (j in seq_len(ncol(chosen))) {
+    network::add.edge(net, chosen[1, j], chosen[2, j])
+  }
+  net
+}
+
+n3 <- add_random_edges(n3, m = 100)
+
 form <- n3 ~
-  edges +
   nodematch("role") +
   nodefactor("stat") +
   gwdegree(0.3, fixed = TRUE) +
@@ -388,7 +401,6 @@ form <- n3 ~
   gwdsp(0.3, fixed = TRUE) # w
 
 coefs <- c(
-  edges = -5.1,
   nodematch.role = 1.7,
   nodefactor.stat.B = 0,
   gwdeg.fixed = 1.4,
@@ -396,15 +408,14 @@ coefs <- c(
   gwdsp.fixed = -0.025
 )
 
-sim3 <- simulate(
+sim33 <- simulate(
   form,
+  constraints = ~edges,
   coef = coefs,
   nsim = 20,
-  output = "network",
-  control = control.simulate.formula(
-    MCMC.maxedges = 200
+  output = "network"
   )
-)
+
 
 coefs <- c(
   edges = -4.9,
@@ -427,7 +438,7 @@ cols <- as.factor()
 par(mfrow = c(4, 5), mar = c(0.2, 0.2, 1, 0.2))
 
 for (i in 1:20) {
-  plot(sim4[[i]], main = paste0("sim ", i))
+  plot(sim33[[i]], main = paste0("sim ", i))
 }
 
 

@@ -12,7 +12,51 @@ source('Compute_NetStats.R') # Assorted helper functions
 source('Spotlight_function.R') # Spotlight relevant functions
 source('Data_handlers.R') # Network ID system and associated handlers
 
-#### Simulate networks ####
+################################### Check file paths ###########################################
+
+node_gt_dir <- here::here("Results", "node_gt")
+net_gt_dir <- here::here("Results", "net_gt")
+node_out_dir <- here::here("Results", "node_results")
+net_out_dir <- here::here("Results", "network_results")
+
+# create if missing
+
+if (!dir.exists(node_gt_dir)) {
+  dir.create(node_gt_dir, recursive = TRUE)
+}
+
+if (!dir.exists(net_gt_dir)) {
+  dir.create(net_gt_dir, recursive = TRUE)
+}
+
+if (!dir.exists(node_out_dir)) {
+  dir.create(node_out_dir, recursive = TRUE)
+}
+
+if (!dir.exists(net_out_dir)) {
+  dir.create(net_out_dir, recursive = TRUE)
+}
+
+# wipe folder before sim if necessary to avoid duplicates
+
+nodefiles <- length(list.files(node_out_dir, full.names = TRUE))
+nodefilesgt <- length(list.files(node_gt_dir, full.names = TRUE))
+netfiles <- length(list.files(net_out_dir, full.names = TRUE))
+netfilesgt <- length(list.files(net_gt_dir, full.names = TRUE))
+
+if (nodefiles + nodefilesgt + netfiles + netfilesgt > 0) {
+  ans <- readline(prompt = "Warning: Files detected in results folders. Y = delete and continue:")
+  if (tolower(ans) %in% "y") {
+    file.remove(list.files(node_out_dir, full.names = TRUE))
+    file.remove(list.files(net_out_dir, full.names = TRUE))
+    file.remove(list.files(node_gt_dir, full.names = TRUE))
+    file.remove(list.files(net_gt_dir, full.names = TRUE))
+  } else {
+    stop("Exiting")
+  }
+}
+
+################################## Generate networks ######################################
 
 # Toy networks for now
 
@@ -68,32 +112,18 @@ nodeGT <- purrr::map_dfr(datasets, function(graph_list) {
   computeCentralityDf(graph_list)
 })
 
-#### Check file paths ####
-node_out_dir <- here::here("Results", "node_results")
-net_out_dir <- here::here("Results", "network_results")
+# save gt results to disk 
 
-# create if missing
-if (!dir.exists(node_out_dir)) {
-  dir.create(node_out_dir, recursive = TRUE)
-}
+saveRDS(graphGT,
+        file = here::here(
+          "Results", "net_gt", "network_results_gt.rds"
+        ))
 
-if (!dir.exists(net_out_dir)) {
-  dir.create(net_out_dir, recursive = TRUE)
-}
+saveRDS(nodeGT,
+        file = here::here(
+          "Results", "node_gt", "node_results_gt.rds"
+        ))
 
-nodefiles <- length(list.files(node_out_dir, full.names = TRUE))
-netfiles <- length(list.files(net_out_dir, full.names = TRUE))
-
-# wipe folder before sim
-if (nodefiles + netfiles > 0) {
-  ans <- readline(prompt = "Warning: Files detected in results folders. Y = delete and continue:")
-  if (tolower(ans) %in% "y") {
-    file.remove(list.files(node_out_dir, full.names = TRUE))
-    file.remove(list.files(net_out_dir, full.names = TRUE))
-  } else {
-    stop("Exiting")
-  }
-}
 
 #################################### Begin sim ##################################
 
@@ -209,6 +239,8 @@ for (ds in names(datasets)) {
   }
 }
 
+##### End of loop cleanup #####
+
 # End of loop flush if results remain but kg < flush
 if (length(global_rows) > 0) {
   network_batch <- dplyr::bind_rows(global_rows)
@@ -235,9 +267,6 @@ if (length(node_rows) > 0) {
   rm(node_batch)
 }
 
-# Collect network level stats
-#graphResults <- dplyr::bind_rows(global_rows)
-
 # Cleanup
 
 rm(a, 
@@ -261,7 +290,7 @@ rm(a,
 
 print("Loop completed and environment cleaned")
 
-################################# Loop Complete ###############################
+################################# Simulation Complete ###############################
 
 
 
