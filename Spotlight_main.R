@@ -149,6 +149,11 @@ set.seed(123)
 
 ##### Begin loop #####
 
+################ IMPORTANT
+################ IMPORTANT
+################ LOGIC FOR EXTRACTING "att" VARIABLE IN SIMULATED NETWORKS NEEDS ADDING
+################ RELEVANT SECTION IN Compute_NetStats.R HAS BEEN COMMENTED
+
 for (ds in names(datasets)) {
   
   base_list <- datasets[[ds]]

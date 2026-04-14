@@ -1,18 +1,11 @@
 #####################################################################################################
 
-#Data preprocessing script. Import, pre-process, fit ERGMs and check GoFs here. 
+#Data preprocessing script. Candidate networks for error simulation created here
 
 #####################################################################################################
 
-#### IMPORTANT !!! ####
-# If you are trying to run the demo section, you must uncomment below
-
-# install.packages("remotes")
-# remotes::install_github("schochastics/networkdata")
 
 here::here()
-
-######################################### Simulation #################################
 
 # Function to check descriptives of simulated networks
 network_summary <- function(net_list) {
@@ -45,10 +38,11 @@ getEdgeNo <- function(nodes, av_deg) {
 }
 
 # Adds random ties to network with number specified by average degree
+# NB This function ONLY works with network objects, not Igraph
 setDensity <- function(net, av_deg) {
   nodes <- network.size(net)
   possible <- utils::combn(nodes, 2)
-  m <- getEdgeNo(nodes = nodes, av_deg = av_deg)
+  m <- round((av_deg * nodes) / 2)
   idx <- sample(seq_len(ncol(possible)), m, replace = FALSE)
   chosen <- possible[, idx, drop = FALSE]
   
@@ -66,6 +60,7 @@ library(network)
 
 ###################################### Sim params ################################
 
+# Empirical data finds param values ranging between below
 # gwdegree: -1.24 : 3.93
 # nodematch: -2.65 : 3.66
 # nodefactor: -2.7 : 1.9
@@ -74,8 +69,6 @@ library(network)
 # gwdsp: -0.69 : 0.66
 # size: 6 : 1036
 # density: 0.0066 : 0.47
-
-# fixing density and abandoning the edges parameter will be better
 
 #### Supervision feedback
 # Keep attributes out of primary design
@@ -91,77 +84,6 @@ library(network)
 # Model whether attribute is related to spotlight or not later
 # Adding an option to save networks would be useful for replication
 
-################################## 'Low trust' archetype ############################
-
-# In theory, a low trust network could take two forms, a cell structure with sparse
-# inter-group connections, or perhaps a more centralised network with low triadic 
-# closure
-# The expanded 9/11 terrorist network might be a good example here, a dense cluster
-# in the hijacking cell, with very sparse connections outside it, with some highly
-# central figures
-# In a larger network the PIRA stage 3 example holds, significant within-brigade
-# clustering, with sparse connections outside that and some very highly centralised 
-# figures
-
-# This proves quite difficult to specify manually, however...
-
-# Update: Below specification is useful for producing cell like structures, slightly
-# negative gwdsp means inter-group connections are sparse, but triadic closure
-# encourages clustering within cells
-
-#form <- n3 ~
-#  edges +
-#  nodematch("role") +
-#  nodefactor("stat") +
-#  gwdegree(0.3, fixed = TRUE) +
-#  gwesp(0.3, fixed = TRUE) +
-#  gwdsp(0.3, fixed = TRUE) # would expect gwdsp to be significant in this case
-
-#coefs <- c(
-#  edges = -5.7,
-#  nodematch.role = 1.5,
-#  nodefactor.stat.B = 0,
-#  gwdeg.fixed = 2,
-#  gwesp.fixed = 2,
-#  gwdsp.fixed = -0.03 # very light touch with this otherwise no LCC
-#)
-
-# The below specification resulted in quite nice looking cell structure
-# Groups were constrained to be equal sizes, produced more pronounced
-# /visual clustering
-
-#n3 %v% "role" <- sample(c("A", "B", "C", "D"),
-#                        n, TRUE, prob = c(8, 8, 8, 8))
-#n3 %v% "stat" <- sample(c("A", "B"),
-#                        n, TRUE, prob = c(6, 3))
-
-#form <- n3 ~
-#  edges +
-#  nodematch("role") +
-#  nodefactor("stat") +
-#  gwdegree(0.3, fixed = TRUE) +
-#  gwesp(0.3, fixed = TRUE) +
-#  gwdsp(0.3, fixed = TRUE) # would expect gwdsp to be significant in this case
-
-#coefs <- c(
-#  edges = -5.7,
-#  nodematch.role = 2,
-#  nodefactor.stat.B = 0,
-#  gwdeg.fixed = 2,
-#  gwesp.fixed = 2,
-#  gwdsp.fixed = -0.02
-#)
-
-# Below specification is nice for slightly sparser networks
-#coefs <- c(
-#  edges = -5.3,
-#  nodematch.role = 1.7,
-#  nodefactor.stat.B = 0,
-#  gwdeg.fixed = 1.7,
-#  gwesp.fixed = 1.5,
-#  gwdsp.fixed = -0.02
-#)
-
 ############################## IMPORTANT
 # gwdegree coefficient is interpreted REVERSE
 # https://environmentalpolicy.ucdavis.edu/blog/shiny-app-help-interpret-gw-degree-estimates-ergms
@@ -169,116 +91,68 @@ library(network)
 # https://www.sciencedirect.com/science/article/pii/S0378873306000396
 # It is interpreted as an anti-perferential attachment term apparently
 
-n <- 60
+# Set up environment for some simulation param experiments
 
-n3 <- network.initialize(n,
-                         directed = FALSE)
-
-n3 %v% "role" <- sample(c("A", "B", "C"),
-                        n, TRUE, prob = c(8, 8, 8))
-n3 %v% "stat" <- sample(c("A", "B"),
-                        n, TRUE, prob = c(6, 3))
-
-
-n3 <- setDensity(n3, av_deg = 3)
-
-form <- n3 ~
-  nodematch("role") +
-  nodefactor("stat") +
-  gwdegree(0.3, fixed = TRUE) +
-  gwesp(0.3, fixed = TRUE) +
-  gwdsp(0.3, fixed = TRUE) # w
-
-coefs <- c(
-  nodematch.role = 1.7,
-  nodefactor.stat.B = 0,
-  gwdeg.fixed = 1.4,
-  gwesp.fixed = 1.5,
-  gwdsp.fixed = -0.025
-)
-
-sim33 <- simulate(
-  form,
-  constraints = ~edges,
-  coef = coefs,
-  nsim = 20,
-  output = "network"
+simulateNetwork <- function(size,
+                            avdeg,
+                            prob = c(3,1),
+                            nfAtt = 0,
+                            gwdeg = 1,
+                            gwesp = 1,
+                            gwdsp = -0.025,
+                            nsim = 20){
+  
+  net <- network::network.initialize(size, directed = FALSE)
+  
+  net %v% "att" <- sample(c("A", "B"), size, TRUE, prob = prob)
+  
+  net <- setDensity(net, av_deg = avdeg)
+  
+  form <- net ~
+    nodefactor("att") +
+    gwdegree(0.3, fixed = TRUE) +
+    gwesp(0.3, fixed = TRUE) +
+    gwdsp(0.3, fixed = TRUE)
+  
+  coefs <- c(
+    nodefactor.att.B = nfAtt,
+    gwdeg.fixed = gwdeg,
+    gwesp.fixed = gwesp,
+    gwdsp.fixed = gwdsp
   )
-
-
-coefs <- c(
-  edges = -4.9,
-  nodematch.role = 1.4,
-  nodefactor.stat.B = 0.5,
-  gwdeg.fixed = 1,
-  gwesp.fixed = 1,
-  gwdsp.fixed = -0.025
-)
-
-sim4 <- simulate(
-  form,
-  coef = coefs,
-  nsim = 20,
-  output = "network"
-)
-
-
-cols <- as.factor()
-par(mfrow = c(4, 5), mar = c(0.2, 0.2, 1, 0.2))
-
-for (i in 1:20) {
-  plot(sim33[[i]], main = paste0("sim ", i))
+  
+  sim <- simulate(
+    form,
+    constraints = ~edges,
+    coef = coefs,
+    nsim = nsim,
+    output = "network"
+  )
+  
+  sim
+  
 }
 
-summary(sim33 ~ edges)
+test <- simulateNetwork(size = 500,
+                        avdeg = 3,
+                        prob = c(2,1),
+                        nfAtt = 0,
+                        gwdeg = 1,
+                        nsim = 20)
 
-network_summary(sim3)
-
-############################# Fully artificial specifications ########################
-
-n <- 100
-
-n1 <- network.initialize(n,
-                         directed = FALSE)
-
-n1 %v% "A" <- sample(c("A", "B", "C", "D"),
-                        n, TRUE, prob = c(8, 32, 15, 8))
-n1 %v% "B" <- sample(c("A", "B"),
-                        n, TRUE, prob = c(6, 3))
-
-form <- n1 ~
-  edges +
-  nodematch("A") +
-  nodefactor("B") +
-  gwdegree(0.1, fixed = TRUE) +
-  gwesp(0.1, fixed = TRUE) +
-  gwdsp(0, fixed = TRUE) 
-
-coefs <- c(
-  edges = -6,
-  nodematch.A = 3,
-  nodefactor.B.B = 0,
-  gwdeg.fixed = -2,
-  gwesp.fixed = 2,
-  gwdsp.fixed = 0.3
-)
+par(mfrow = c(4, 5), mar = c(0.2, 0.2, 1, 0.2))
 
 
-sim <- simulate(
-  form,
-  coef = coefs,
-  nsim = 20,
-  output = "network",
-  control = control.simulate.formula(
-    MCMC.maxedges = 1000
-  )
-)
+for (i in 1:20) {
+  plot(test[[i]], main = paste0("test ", i))
+}
 
-plot(sim[[4]])
+summary(test ~ edges)
 
-network_summary(sim)
+network_summary(test)
 
 
+########################## PLACEHOLDER NETWORKS TO TEST PIPELINE #######################
 ########################################## Florentine Families ######################################
 # 16x16 undirected, low density, isolates
 
