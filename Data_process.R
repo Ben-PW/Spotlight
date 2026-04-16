@@ -28,8 +28,14 @@ network_summary <- function(net_list) {
     
     #target_comp = 1,
     mean_components = mean(sapply(net_list, function(g)
-      length(sna::component.dist(g)$csize)))
-  )
+      length(sna::component.dist(g)$csize))),
+    
+    mean_component_coverage = mean(sapply(net_list, function(g)
+      (max(sna::component.dist(g)$csize)/network.size(g))*100)),
+    
+    mean_centralisation = mean(sapply(net_list, function(g)
+      igraph::centr_degree(intergraph::asIgraph(g), normalized = TRUE)$centralization)
+  ))
 }
 
 # Uses specified average degree to determine number of edges added to network
@@ -97,6 +103,7 @@ simulateNetwork <- function(size,
                             avdeg,
                             prob = c(3,1),
                             nfAtt = 0,
+                            nmAtt = 0,
                             gwdeg = 1,
                             gwesp = 1,
                             gwdsp = -0.025,
@@ -104,24 +111,30 @@ simulateNetwork <- function(size,
   
   net <- network::network.initialize(size, directed = FALSE)
   
-  net %v% "att" <- sample(c("A", "B"), size, TRUE, prob = prob)
+  network::set.vertex.attribute(
+    net,
+    attrname = "att",
+    value = sample(c("A", "B"), size, replace = TRUE, prob = prob)
+  )
   
   net <- setDensity(net, av_deg = avdeg)
   
   form <- net ~
     nodefactor("att") +
+    nodematch("att") +
     gwdegree(0.3, fixed = TRUE) +
     gwesp(0.3, fixed = TRUE) +
     gwdsp(0.3, fixed = TRUE)
   
   coefs <- c(
     nodefactor.att.B = nfAtt,
+    nodematch.att = nmAtt,
     gwdeg.fixed = gwdeg,
     gwesp.fixed = gwesp,
     gwdsp.fixed = gwdsp
   )
   
-  sim <- simulate(
+  sim <- stats::simulate(
     form,
     constraints = ~edges,
     coef = coefs,
@@ -133,24 +146,211 @@ simulateNetwork <- function(size,
   
 }
 
-test <- simulateNetwork(size = 500,
+############################### LESSONS FROM TEST 1
+# Don't include nodefactor, it results in networks which are far too centralised and
+# induces a huge number of isolates. It likely interacts significantly with negative
+# gwdeg parameter values, which just gets messy.
+# For next tests, likely switch to nodematch, just as a structural control
+
+test1 <- simulateNetwork(size = 500,
                         avdeg = 3,
                         prob = c(2,1),
                         nfAtt = 0,
                         gwdeg = 1,
                         nsim = 20)
 
+test2 <- simulateNetwork(size = 500,
+                         avdeg = 3,
+                         prob = c(2,1),
+                         nfAtt = 0,
+                         gwdeg = -1,
+                         nsim = 20)
+
+test3 <- simulateNetwork(size = 500,
+                         avdeg = 3,
+                         prob = c(2,1),
+                         nfAtt = 1,
+                         gwdeg = -1,
+                         nsim = 20)
+
+test4 <- simulateNetwork(size = 500,
+                         avdeg = 3,
+                         prob = c(2,1),
+                         nfAtt = 1,
+                         gwdeg = 1,
+                         nsim = 20)
+
+test5 <- simulateNetwork(size = 100,
+                         avdeg = 3,
+                         prob = c(2,1),
+                         nfAtt = 0,
+                         gwdeg = 1,
+                         nsim = 20)
+
+test6 <- simulateNetwork(size = 100,
+                         avdeg = 3,
+                         prob = c(2,1),
+                         nfAtt = 0,
+                         gwdeg = -1,
+                         nsim = 20)
+
+test7 <- simulateNetwork(size = 100,
+                         avdeg = 3,
+                         prob = c(2,1),
+                         nfAtt = 1,
+                         gwdeg = -1,
+                         nsim = 20)
+
+test8 <- simulateNetwork(size = 100,
+                         avdeg = 3,
+                         prob = c(2,1),
+                         nfAtt = 1,
+                         gwdeg = 1,
+                         nsim = 20)
+
+testgwdeg0 <- simulateNetwork(size = 100,
+                              avdeg = 4,
+                              prob = c(1,1),
+                              nfAtt = 0,
+                              nmAtt = 1,
+                              gwdeg = 1,
+                              nsim = 20)
+
 par(mfrow = c(4, 5), mar = c(0.2, 0.2, 1, 0.2))
 
 
+network::set.vertex.attribute(
+    net,
+    attrname = "att",
+    value = sample(c("A", "B"), size, replace = TRUE, prob = prob)
+  )
+  
+  net <- setDensity(net, av_deg = avdeg)
+  
+  form <- net ~
+    nodefactor("att") +
+    nodematch("att") +
+    gwdegree(0.3, fixed = TRUE) +
+    gwesp(0.3, fixed = TRUE) +
+    gwdsp(0.3, fixed = TRUE)
+  
+  coefs <- c(
+    nodefactor.att.B = nfAtt,
+    nodematch.att = nmAtt,
+    gwdeg.fixed = gwdeg,
+    gwesp.fixed = gwesp,
+    gwdsp.fixed = gwdsp
+  )
+  
+  sim <- stats::simulate(
+    form,
+    constraints = ~edges,
+    coef = coefs,
+    nsim = nsim,
+    output = "network"
+  )
+  
+  sim
+  
 for (i in 1:20) {
-  plot(test[[i]], main = paste0("test ", i))
+  plot(test2[[i]], main = paste0("test_2 ", i))
+}
+for (i in 1:20) {
+  plot(test3[[i]], main = paste0("test_3 ", i))
+}
+for (i in 1:20) {
+  plot(test4[[i]], main = paste0("test_4 ", i))
+}
+for (i in 1:20) {
+  plot(test5[[i]], main = paste0("test_5 ", i))
+}
+for (i in 1:20) {
+  plot(test6[[i]], main = paste0("test_6 ", i))
+}
+for (i in 1:20) {
+  plot(test7[[i]], main = paste0("test_7 ", i))
+}
+for (i in 1:20) {
+  plot(test8[[i]], main = paste0("test_8 ", i))
+}
+for (i in 1:20) {
+  plot(testgwdeg0[[i]], main = paste0("test_nm1 ", i))
+}
+summary(test1 ~ edges)
+
+network_summary(test1)
+network_summary(test2)
+network_summary(test3)
+network_summary(test4)
+network_summary(test5)
+network_summary(test6)
+network_summary(test7)
+network_summary(test8)
+network_summary(testgwdeg0)
+
+################################# LESSONS FROM TEST2
+# These parameters are producing very decentralised networks
+# gwesp may be producing eqalitarian structures?
+# likely need to use nodefactor to encourage hubs
+
+par(mfrow = c(4, 5), mar = c(0.2, 0.2, 1, 0.2))
+
+simulateNetwork <- function(size,
+                            avdeg,
+                            prob = c(3,1),
+                            nfAtt = 0,
+                            nmAtt = 0,
+                            gwdeg = 1,
+                            #gwesp = 1,
+                            #gwdsp = -0.025,
+                            nsim = 20){
+  
+  net <- network::network.initialize(size, directed = FALSE)
+  
+  network::set.vertex.attribute(
+    net,
+    attrname = "att",
+    value = sample(c("A", "B"), size, replace = TRUE, prob = prob)
+  )
+  
+  net <- setDensity(net, av_deg = avdeg)
+  
+  form <- net ~
+    nodefactor("att") +
+    nodematch("att") +
+    gwdegree(0.3, fixed = TRUE) #+
+    #gwesp(0.3, fixed = TRUE) #+
+    #gwdsp(0.3, fixed = TRUE)
+  
+  coefs <- c(
+    nodefactor.att.B = nfAtt,
+    nodematch.att = nmAtt,
+    gwdeg.fixed = gwdeg#,
+    #gwesp.fixed = gwesp,
+    #gwdsp.fixed = gwdsp
+  )
+  
+  sim <- stats::simulate(
+    form,
+    constraints = ~edges,
+    coef = coefs,
+    nsim = nsim,
+    output = "network"
+  )
+  
+  sim
+  
 }
 
-summary(test ~ edges)
+test2 <- simulateNetwork(size = 100,
+                         avdeg = 3,
+                         nfAtt = 1,
+                         gwdeg = -0.5,
+                         nsim = 20)
 
-network_summary(test)
-
+for (i in 1:20) {
+  plot(test2[[i]], main = paste0("test_2 ", i))
+}
 
 ########################## PLACEHOLDER NETWORKS TO TEST PIPELINE #######################
 ########################################## Florentine Families ######################################
