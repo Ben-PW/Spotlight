@@ -78,9 +78,9 @@ construct_initial_degseq <- function(size,
   NULL
 }
 
-# ------------------------------------------------------------------------------
+
 # Proposal moves
-# ------------------------------------------------------------------------------
+
 
 propose_move_1 <- function(deg, min_degree = 1L) {
   # Move 1 degree from one node to another
@@ -167,9 +167,9 @@ propose_degseq_move_mixed <- function(deg,
   list(prop = prop, move_type = move_type)
 }
 
-# ------------------------------------------------------------------------------
+
 # Main sampler
-# ------------------------------------------------------------------------------
+
 
 degree_sequence_sample_mcmc <- function(nsim = 20,
                                         size,
@@ -414,19 +414,21 @@ plot_degseq_trace <- function(out) {
 
 # Example 1: lower centralisation
 out_lowC <- degree_sequence_sample_mcmc(
-  nsim = 5,
+  nsim = 20,
   size = 100,
   average_degree = 3,
-  freeman_centralisation = 0.2,
-  tolerance = 0.05,
+  freeman_centralisation = 0.15,
+  tolerance = 0.01,
   min_degree = 1,
-  burnin = 3000,
-  thin = 300,
-  seed = 123,
+  burnin = 20000,
+  thin = 2000,
+  seed = 125,
   unique_sequences = FALSE,
   verbose = TRUE,
   store_trace = TRUE
 )
+
+out_lowC$degree_sequences
 
 summarise_degseq_sample(out_lowC)
 plot_degseq_trace(out_lowC)
@@ -456,11 +458,11 @@ out_highC <- degree_sequence_sample_mcmc(
   nsim = 5,
   size = 100,
   average_degree = 3,
-  freeman_centralisation = 0.7,
+  freeman_centralisation = 0.5,
   tolerance = 0.05,
   min_degree = 1,
-  burnin = 5000,
-  thin = 500,
+  burnin = 50000,
+  thin = 5000,
   seed = 123,
   unique_sequences = FALSE,
   verbose = TRUE,
@@ -497,8 +499,8 @@ out_highCD <- degree_sequence_sample_mcmc(
   freeman_centralisation = 0.7,
   tolerance = 0.05,
   min_degree = 1,
-  burnin = 50000,
-  thin = 5000,
+  burnin = 20000,
+  thin = 2000,
   seed = 125,
   unique_sequences = FALSE,
   verbose = TRUE,
@@ -524,3 +526,79 @@ for (i in seq_along(net_highC)) {
   plot(net_highC[[i]], main = paste0("High C ", i))
 }
 par(oldpar)
+
+simulateNetworks <- function(net_list, 
+                             nsim = 1,
+                             nfAtt = 0,
+                             nmAtt = 0,
+                             gwdeg = 0.5,
+                             gwesp = 0.5,
+                             gwdsp = -0.025) {
+  
+  all_sims <- list()
+  counter <- 1
+  
+  for (i in seq_along(net_list)) {
+    
+    net <- net_list[[i]]
+    
+    n <- network::network.size(net)
+    
+    # Assign attributes ONCE per basis network
+    network::set.vertex.attribute(
+      net,
+      attrname = "att",
+      value = sample(c("A", "B"), n, replace = TRUE, prob = c(3, 1))
+    )
+    
+    form <- net ~
+      nodefactor("att") +
+      nodematch("att") +
+      gwdegree(0.3, fixed = TRUE) +
+      gwesp(0.3, fixed = TRUE) +
+      gwdsp(0.3, fixed = TRUE)
+    
+    coefs <- c(
+      nodefactor.att.B = nfAtt,
+      nodematch.att = nmAtt,
+      gwdeg.fixed = gwdeg,
+      gwesp.fixed = gwesp,
+      gwdsp.fixed = gwdsp
+    )
+    
+    sim <- ergm::simulate_formula(
+      form,
+      constraints = ~degreedist,
+      coef = coefs,
+      nsim = nsim,
+      output = "network"
+    )
+    
+    # Flatten into one list
+    for (j in seq_len(nsim)) {
+      all_sims[[counter]] <- sim[[j]]
+      counter <- counter + 1
+    }
+  }
+  
+  return(all_sims)
+}
+
+library(ergm)
+trial <- simulateNetworks(net_list = net_highC,
+                          nfAtt = 0,
+                          nmAtt = 0.5,
+                          gwdeg = 0.5,
+                          gwesp = 0.5,
+                          gwdsp = -0.02,
+                          nsim = 2)
+
+summary(trial[[1]] ~ edges)
+
+net_highC
+
+par(mfrow = c(4, 5), mar = c(0.2, 0.2, 1, 0.2))
+
+for (i in 1:20) {
+  plot(trial[[i]], main = paste0("sim ", i))
+}

@@ -239,17 +239,18 @@ degree_sequence_sample_dmax <- function(nsim = 20,
 }
 
 out <- degree_sequence_sample_dmax(
-  nsim = 10,
-  size = 500,
-  average_degree = 6,
-  freeman_centralisation = 0.7,
-  tolerance = 0.05,
+  nsim = 5,
+  size = 100,
+  average_degree = 3,
+  freeman_centralisation = 0.15,
+  tolerance = 0.01,
   min_degree = 1,
   seed = 123,
   unique_sequences = FALSE,
   verbose = TRUE
 )
 
+out
 out$dmax
 out$realised_centralisation
 head(out$admissible_dmax)
@@ -337,7 +338,7 @@ simulateNetworks <- function(net_list,
       gwdsp.fixed = gwdsp
     )
     
-    sim <- stats::simulate(
+    sim <- ergm::simulate_formula(
       form,
       constraints = ~degreedist,
       coef = coefs,
@@ -355,15 +356,18 @@ simulateNetworks <- function(net_list,
   return(all_sims)
 }
 
+library(ergm)
 trial <- simulateNetworks(net_list = net,
-                          nfAtt = 0.5,
-                          nmAtt = 0,
-                          gwdeg = -0.5,
-                          gwesp = 0.5,
-                          gwdsp = 0.5,
+                          nfAtt = 0,
+                          nmAtt = 0.5,
+                          gwdeg = 0.5,
+                          gwesp = 1,
+                          gwdsp = 0.03,
                           nsim = 2)
 
-summary(trial[[2]] ~ edges)
+summary(trial[[1]] ~ edges)
+
+par(mfrow = c(4, 5), mar = c(0.2, 0.2, 1, 0.2))
 
 for (i in 1:20) {
   plot(trial[[i]], main = paste0("sim ", i))
