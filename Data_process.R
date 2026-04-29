@@ -4,6 +4,7 @@
 
 #####################################################################################################
 
+source("Degree_sequence_sampler2.R")
 
 here::here()
 
@@ -35,32 +36,319 @@ network_summary <- function(net_list) {
     
     mean_centralisation = mean(sapply(net_list, function(g)
       igraph::centr_degree(intergraph::asIgraph(g), normalized = TRUE)$centralization)
-  ))
+    ))
 }
 
-# Uses specified average degree to determine number of edges added to network
-getEdgeNo <- function(nodes, av_deg) {
-  round((av_deg * nodes) / 2)
-}
-
-# Adds random ties to network with number specified by average degree
-# NB This function ONLY works with network objects, not Igraph
-setDensity <- function(net, av_deg) {
-  nodes <- network.size(net)
-  possible <- utils::combn(nodes, 2)
-  m <- round((av_deg * nodes) / 2)
-  idx <- sample(seq_len(ncol(possible)), m, replace = FALSE)
-  chosen <- possible[, idx, drop = FALSE]
+simulateNetworks <- function(net_list, 
+                             nsim = 1,
+                             nfAtt = 0,
+                             nmAtt = 0,
+                             gwdeg = 0.5,
+                             gwesp = 0.5,
+                             gwdsp = -0.025) {
   
-  for (j in seq_len(ncol(chosen))) {
-    network::add.edge(net, chosen[1, j], chosen[2, j])
+  all_sims <- list()
+  counter <- 1
+  
+  for (i in seq_along(net_list)) {
+    
+    net <- net_list[[i]]
+    
+    n <- network::network.size(net)
+    
+    # Assign attributes ONCE per basis network
+    network::set.vertex.attribute(
+      net,
+      attrname = "att",
+      value = sample(c("A", "B"), n, replace = TRUE, prob = c(3, 1))
+    )
+    
+    form <- net ~
+      nodefactor("att") +
+      nodematch("att") +
+      gwdegree(0.3, fixed = TRUE) +
+      gwesp(0.3, fixed = TRUE) +
+      gwdsp(0.3, fixed = TRUE)
+    
+    coefs <- c(
+      nodefactor.att.B = nfAtt,
+      nodematch.att = nmAtt,
+      gwdeg.fixed = gwdeg,
+      gwesp.fixed = gwesp,
+      gwdsp.fixed = gwdsp
+    )
+    
+    sim <- ergm::simulate_formula(
+      form,
+      constraints = ~degreedist,
+      coef = coefs,
+      nsim = nsim,
+      output = "network"
+    )
+    
+    # Flatten into one list
+    for (j in seq_len(nsim)) {
+      all_sims[[counter]] <- sim[[j]]
+      counter <- counter + 1
+    }
   }
-  net
+  
+  return(all_sims)
 }
 
+netFromDegSeq <- function(degree_sequences) {
+  
+  g_list <- lapply(degree_sequences, function(x) {
+    igraph::realize_degseq(
+      x,
+      allowed.edge.types = "simple",
+      method = "smallest"
+    )
+  })
+  
+  net_list <- lapply(g_list, intergraph::asNetwork)
+  
+  return(net_list)
+}
 
-library(ergm)
-library(network)
+plotSimNetworks <- function(net_list) {
+  
+  obj_name <- deparse(substitute(net_list))
+  
+  # flatten one level if needed
+  if (is.list(net_list[[1]]) && !inherits(net_list[[1]], "network")) {
+    net_list <- unlist(net_list, recursive = FALSE)
+  }
+  
+  for (i in seq_along(net_list)) {
+    plot(
+      net_list[[i]],
+      main = paste0(obj_name, " ", i)
+    )
+  }
+}
+############################## Generate degree sequences #############################
+
+######################## n50 ####
+
+############## ad3 ####
+
+##### c01 ####
+
+n50ad3c01 <- degree_sequence_sample_mcmc(
+  nsim = 10,
+  size = 50,
+  average_degree = 3,
+  freeman_centralisation = 0.1,
+  tolerance = 0.01,
+  min_degree = 1,
+  burnin = 20000,
+  thin = 2000,
+  seed = 125,
+  unique_sequences = TRUE,
+  verbose = TRUE,
+  store_trace = TRUE
+)
+
+##### c05 ####
+
+n50ad3c05 <- degree_sequence_sample_mcmc(
+  nsim = 10,
+  size = 50,
+  average_degree = 3,
+  freeman_centralisation = 0.5,
+  tolerance = 0.05,
+  min_degree = 1,
+  burnin = 20000,
+  thin = 2000,
+  seed = 125,
+  unique_sequences = FALSE,
+  verbose = TRUE,
+  store_trace = TRUE
+)
+
+############## ad6 ####
+
+##### c01 ####
+
+n50ad6c01 <- degree_sequence_sample_mcmc(
+  nsim = 10,
+  size = 50,
+  average_degree = 6,
+  freeman_centralisation = 0.1,
+  tolerance = 0.05,
+  min_degree = 1,
+  burnin = 20000,
+  thin = 2000,
+  seed = 125,
+  unique_sequences = FALSE,
+  verbose = TRUE,
+  store_trace = TRUE
+)
+
+##### c05 ####
+
+n50ad6c05 <- degree_sequence_sample_mcmc(
+  nsim = 10,
+  size = 50,
+  average_degree = 6,
+  freeman_centralisation = 0.5,
+  tolerance = 0.05,
+  min_degree = 1,
+  burnin = 20000,
+  thin = 2000,
+  seed = 125,
+  unique_sequences = FALSE,
+  verbose = TRUE,
+  store_trace = TRUE
+)
+
+######################## n100 ####
+
+############## ad3 ####
+
+##### c01 ####
+
+n100ad3c01 <- degree_sequence_sample_mcmc(
+  nsim = 10,
+  size = 100,
+  average_degree = 3,
+  freeman_centralisation = 0.1,
+  tolerance = 0.05,
+  min_degree = 1,
+  burnin = 20000,
+  thin = 2000,
+  seed = 125,
+  unique_sequences = FALSE,
+  verbose = TRUE,
+  store_trace = TRUE
+)
+
+##### c05 ####
+
+n100ad3c05 <- degree_sequence_sample_mcmc(
+  nsim = 10,
+  size = 100,
+  average_degree = 3,
+  freeman_centralisation = 0.5,
+  tolerance = 0.05,
+  min_degree = 1,
+  burnin = 20000,
+  thin = 2000,
+  seed = 125,
+  unique_sequences = FALSE,
+  verbose = TRUE,
+  store_trace = TRUE
+)
+
+############## ad6 ####
+
+##### c01 ####
+
+n100ad6c01 <- degree_sequence_sample_mcmc(
+  nsim = 10,
+  size = 100,
+  average_degree = 6,
+  freeman_centralisation = 0.1,
+  tolerance = 0.05,
+  min_degree = 1,
+  burnin = 20000,
+  thin = 2000,
+  seed = 125,
+  unique_sequences = FALSE,
+  verbose = TRUE,
+  store_trace = TRUE
+)
+##### c05 ####
+
+n100ad6c05 <- degree_sequence_sample_mcmc(
+  nsim = 10,
+  size = 100,
+  average_degree = 6,
+  freeman_centralisation = 0.5,
+  tolerance = 0.05,
+  min_degree = 1,
+  burnin = 20000,
+  thin = 2000,
+  seed = 125,
+  unique_sequences = FALSE,
+  verbose = TRUE,
+  store_trace = TRUE
+)
+
+######################## n150 ####
+
+############## ad3 ####
+
+##### c01 ####
+
+n150ad3c01 <- degree_sequence_sample_mcmc(
+  nsim = 10,
+  size = 150,
+  average_degree = 3,
+  freeman_centralisation = 0.1,
+  tolerance = 0.05,
+  min_degree = 1,
+  burnin = 20000,
+  thin = 2000,
+  seed = 125,
+  unique_sequences = FALSE,
+  verbose = TRUE,
+  store_trace = TRUE
+)
+
+##### c05 ####
+
+n150ad3c05 <- degree_sequence_sample_mcmc(
+  nsim = 10,
+  size = 150,
+  average_degree = 3,
+  freeman_centralisation = 0.5,
+  tolerance = 0.05,
+  min_degree = 1,
+  burnin = 20000,
+  thin = 2000,
+  seed = 125,
+  unique_sequences = FALSE,
+  verbose = TRUE,
+  store_trace = TRUE
+)
+
+############## ad6 ####
+
+##### c01 ####
+
+n150ad6c01 <- degree_sequence_sample_mcmc(
+  nsim = 10,
+  size = 150,
+  average_degree = 6,
+  freeman_centralisation = 0.1,
+  tolerance = 0.05,
+  min_degree = 1,
+  burnin = 20000,
+  thin = 2000,
+  seed = 125,
+  unique_sequences = FALSE,
+  verbose = TRUE,
+  store_trace = TRUE
+)
+
+##### c05 ####
+
+n150ad6c05 <- degree_sequence_sample_mcmc(
+  nsim = 10,
+  size = 150,
+  average_degree = 6,
+  freeman_centralisation = 0.5,
+  tolerance = 0.05,
+  min_degree = 1,
+  burnin = 20000,
+  thin = 2000,
+  seed = 125,
+  unique_sequences = FALSE,
+  verbose = TRUE,
+  store_trace = TRUE
+)
 
 
 
@@ -98,6 +386,127 @@ library(network)
 # It is interpreted as an anti-perferential attachment term apparently
 
 # Set up environment for some simulation param experiments
+
+####################### Trial network parameters
+# Here i need to trial parameters that are representative of real world networks
+# but also produce useable data for the simulation
+
+sapply(net_list, function(g) {
+  igraph::centr_degree(
+    intergraph::asIgraph(g),
+    normalized = TRUE
+  )$centralization
+})
+
+par(mfrow = c(4, 5), mar = c(0.2, 0.2, 1, 0.2))
+
+n100ad3c01_list <- netFromDegSeq(n100ad3c01$degree_sequences)
+
+n100ad3c01sim <- simulateNetworks(n100ad3c01_list,
+                                  gwdeg = 1,
+                                  gwesp = 1,
+                                  gwdsp = 1,
+                                  nsim = 2)
+
+network_summary(n100ad3c01sim)
+plotSimNetworks(n100ad3c01sim)
+
+sapply(n100ad3c01sim, function(g) {
+  igraph::centr_degree(
+    intergraph::asIgraph(g),
+    normalized = TRUE
+  )$centralization
+})
+
+n100ad3c05_list <- netFromDegSeq(n100ad3c05$degree_sequences)
+
+n100ad3c05sim <- simulateNetworks(n100ad3c05_list,
+                                  gwdeg = 1,
+                                  gwesp = 0.1,
+                                  gwdsp = 0.1,
+                                  nsim = 2)
+
+network_summary(n100ad3c05sim)
+plotSimNetworks(n100ad3c05sim)
+
+for (i in 1:20) {
+  plot(trial[[i]], main = paste0("sim ", i))
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 simulateNetwork <- function(size,
                             avdeg,

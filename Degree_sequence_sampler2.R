@@ -417,7 +417,7 @@ out_lowC <- degree_sequence_sample_mcmc(
   nsim = 20,
   size = 100,
   average_degree = 3,
-  freeman_centralisation = 0.15,
+  freeman_centralisation = 0.1,
   tolerance = 0.01,
   min_degree = 1,
   burnin = 20000,
