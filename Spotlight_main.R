@@ -12,49 +12,42 @@ source('Compute_NetStats.R') # Assorted helper functions
 source('Spotlight_function.R') # Spotlight relevant functions
 source('Data_handlers.R') # Network ID system and associated handlers
 
-################################### Check file paths ###########################################
+################################### Database setup ###########################################
 
-node_gt_dir <- here::here("Results", "node_gt")
-net_gt_dir <- here::here("Results", "net_gt")
-node_out_dir <- here::here("Results", "node_results")
-net_out_dir <- here::here("Results", "network_results")
+# All file management is now done with respect to current wd
 
-# create if missing
+here::here()
 
-if (!dir.exists(node_gt_dir)) {
-  dir.create(node_gt_dir, recursive = TRUE)
+# Check for local results folder and create if missing
+
+if(!dir.exists(here::here("Results"))){
+  dir.create(here::here("Results"), recursive = TRUE)
 }
 
-if (!dir.exists(net_gt_dir)) {
-  dir.create(net_gt_dir, recursive = TRUE)
-}
+# .duckdb file is a database file which stores results as tables, not files
 
-if (!dir.exists(node_out_dir)) {
-  dir.create(node_out_dir, recursive = TRUE)
-}
+db_path <- here::here("Results", "spotlight_results.duckdb")
 
-if (!dir.exists(net_out_dir)) {
-  dir.create(net_out_dir, recursive = TRUE)
-}
+# check for exisiting db so don't append simulation to any test results
 
-# wipe folder before sim if necessary to avoid duplicates
-
-nodefiles <- length(list.files(node_out_dir, full.names = TRUE))
-nodefilesgt <- length(list.files(node_gt_dir, full.names = TRUE))
-netfiles <- length(list.files(net_out_dir, full.names = TRUE))
-netfilesgt <- length(list.files(net_gt_dir, full.names = TRUE))
-
-if (nodefiles + nodefilesgt + netfiles + netfilesgt > 0) {
-  ans <- readline(prompt = "Warning: Files detected in results folders. Y = delete and continue:")
-  if (tolower(ans) %in% "y") {
-    file.remove(list.files(node_out_dir, full.names = TRUE))
-    file.remove(list.files(net_out_dir, full.names = TRUE))
-    file.remove(list.files(node_gt_dir, full.names = TRUE))
-    file.remove(list.files(net_gt_dir, full.names = TRUE))
+if (file.exists(db_path)) {
+  ans <- readline(prompt = "Existing DuckDB detected. Y = delete and continue:")
+  if (tolower(ans) == "y") {
+    file.remove(db_path)
+    file.remove(paste0(db_path, ".wal")) # remove any log files as well
   } else {
     stop("Exiting")
   }
 }
+
+# connect to db
+
+con <- DBI::dbConnect(
+  duckdb::duckdb(),
+  dbdir = db_path
+)
+
+on.exit(DBI::dbDisconnect(con, shutdown = TRUE), add = TRUE)
 
 ################################## Generate networks ######################################
 
@@ -105,24 +98,16 @@ graphGT <- purrr::map_dfr(datasets, computeMetrics)
 nodeGT <- purrr::map_dfr(datasets, function(graph_list) {
   graph_list <- lapply(graph_list, function(g) {
     if (is.null(igraph::V(g)$Spotlight)) { #compute centrality expects spotlight
-      igraph::V(g)$Spotlight <- 0L
+      igraph::V(g)$Spotlight <- NA_integer_ # tag as NA for gt graphs
     }
     g
   })
   computeCentralityDf(graph_list)
 })
 
-# save gt results to disk 
-
-saveRDS(graphGT,
-        file = here::here(
-          "Results", "net_gt", "network_results_gt.rds"
-        ))
-
-saveRDS(nodeGT,
-        file = here::here(
-          "Results", "node_gt", "node_results_gt.rds"
-        ))
+# save gt results to db
+DBI::dbWriteTable(con, "network_results_gt", graphGT, overwrite = TRUE)
+DBI::dbWriteTable(con, "node_results_gt", nodeGT, overwrite = TRUE)
 
 
 #################################### Begin sim ##################################
@@ -130,10 +115,10 @@ saveRDS(nodeGT,
 #### Spotlight params ####
 
 # Basic params for testing
-spotlight_pcts <- c(0.01, 0.025, 0.05, 0.075, 0.10) # % nodes spotlit
-miss_levels <- c(0.10, 0.20, 0.30, 0.40, 0.50) # missingness levels
-alphas <- c(0, 0.5, 1, 2, 3) # exponential degree bias
-bs <- c(1, 2, 3, 4) # weights for non-spotlit ties
+spotlight_pcts <- c(0.01, 0.05, 0.10) # % nodes spotlit
+miss_levels <- c(0.10, 0.30, 0.50) # missingness levels
+alphas <- c(0, 10) # exponential degree bias ##### TEST PARAMETERS HERE ####
+bs <- c(1, 2, 4) # weights for non-spotlit ties
 
 #### Loop setup ####
 
@@ -145,6 +130,14 @@ flush <- 50L # save increments
 node_batch_id <- 1L # node batch ids
 network_batch_id <- 1L # network batch ids
 
+#### Progress setup ####
+
+start_time <- Sys.time()
+
+ds_names <- names(datasets)
+ds_total <- length(ds_names)
+ds_counter <- 0L
+
 set.seed(123)
 
 ##### Begin loop #####
@@ -154,144 +147,203 @@ set.seed(123)
 ################ LOGIC FOR EXTRACTING "att" VARIABLE IN SIMULATED NETWORKS NEEDS ADDING
 ################ RELEVANT SECTION IN Compute_NetStats.R HAS BEEN COMMENTED
 
-for (ds in names(datasets)) {
+tryCatch(
   
-  base_list <- datasets[[ds]]
+  # Main loop for most of error simulation
   
-  for (a in alphas) {
-    for (sp in spotlight_pcts) {
+  expr = {
+    
+    for(ds in names(datasets)){
       
-      # Do spotlight here so it's consistent across ml and b levels
-      sp_list <- assignSpotlight(base_list, spotlight_pct = sp, alpha = a)
+      # Count datasets for basic progress bar
+      ds_counter <- ds_counter + 1L
+    
+      base_list <- datasets[[ds]]
+    
+      # Iterate over degree bias
+      for (a in alphas) {
       
-      for (bv in bs) {
-        for (ml in miss_levels) {
+        # Iterate over spotlight percentages
+        for (sp in spotlight_pcts) {
+        
+          # Do spotlight here so it's consistent across ml and b levels
+          sp_list <- assignSpotlight(base_list, spotlight_pct = sp, alpha = a)
+        
+          # Iterate over non-spotlit tie weight
+          for (bv in bs) {
           
-          # apply spotlight
-          obs_list <- sampleSpotlight(sp_list, miss_level = ml, b = bv)
-          
-          # store simulation parameters
-          obs_list <- tagGraphs(
-            graph_list = obs_list,
-            dataset = ds,
-            source = "observed",
-            alpha = a,
-            spotlight_pct = sp,
-            b = bv,
-            miss_level = ml
-          )
-          
-          # Calculate network level metrics
-          global_rows[[kg]] <- computeMetrics(obs_list) 
-          
-          kg <- kg + 1L # increment counter
-          
-          # Batch save network calculations to disk every 50 loops and 
-          # re-initialise required variables
-          
-          if ((kg - 1L) >= flush) {
-            network_batch <- dplyr::bind_rows(global_rows)
+            # Iterate over missingness levels
+            for (ml in miss_levels) {
             
-            saveRDS(
-              network_batch,
-              file = here::here(
-                "Results", "network_results",
-                paste0("network_results_batch_", network_batch_id, ".rds")
-              )
-            )
+              #### Main spotlight and data storage section below ####
             
-            global_rows <- list() # refresh list for future loops
-            kg <- 1L # reset node metrics loop counter
-            network_batch_id <- network_batch_id + 1L # increment batch counter
-            rm(network_batch)
-            gc(FALSE)
+              tryCatch({
+              
+                # apply spotlight
+                obs_list <- sampleSpotlight(sp_list, miss_level = ml, b = bv)
+              
+                # store simulation parameters
+                obs_list <- tagGraphs(
+                  graph_list = obs_list,
+                  dataset = ds,
+                  source = "observed",
+                  alpha = a,
+                  spotlight_pct = sp,
+                  b = bv,
+                  miss_level = ml
+               )
+              
+                # Calculate network level metrics
+                global_rows[[kg]] <- computeMetrics(obs_list) 
+              
+                kg <- kg + 1L
+              
+                # Append network calculations to db every 50 loops
+                if ((kg - 1L) >= flush) {
+                  network_batch <- dplyr::bind_rows(global_rows)
+                
+                 DBI::dbWriteTable(
+                   con,
+                   "network_results",
+                   network_batch,
+                   append = DBI::dbExistsTable(con, "network_results")
+                 )
+                
+                  global_rows <- list()
+                  kg <- 1L
+                  network_batch_id <- network_batch_id + 1L
+                  rm(network_batch)
+                  gc(FALSE)
+                }
+              
+                # Calculate node level centralities
+                node_rows[[kn]] <- computeCentralityDf(obs_list)
+              
+                kn <- kn + 1L
+              
+                # Append node calculations to db every 50 loops
+                if ((kn - 1L) >= flush) {
+                  node_batch <- dplyr::bind_rows(node_rows)
+                
+                  DBI::dbWriteTable(
+                    con,
+                    "node_results",
+                    node_batch,
+                    append = DBI::dbExistsTable(con, "node_results")
+                  )
+                
+                  node_rows <- list()
+                  kn <- 1L
+                  node_batch_id <- node_batch_id + 1L
+                  rm(node_batch)
+                  gc(FALSE)
+                }
+              
+                rm(obs_list)
+              
+              }, 
+            
+              # Error handler for any issues writing the results to the database
+              # very basic, just lists the dataset and error conditions
+            
+              error = function(e) {
+              
+                msg <- paste0(
+                  "ERROR | dataset=", ds,
+                  " | alpha=", a,
+                  " | spotlight_pct=", sp,
+                  " | b=", bv,
+                  " | miss_level=", ml,
+                  " | message=", e$message
+                )
+              
+                message(msg)
+              
+                write(
+                  paste(Sys.time(), msg, sep = " | "),
+                  file = here::here("Results", "error_log.txt"),
+                  append = TRUE
+                )
+              
+                rm(list = "obs_list")
+                gc(FALSE)
+              
+              })
+            }
           }
-          
-          # Calculate node level centralities
-          node_rows[[kn]] <- computeCentralityDf(obs_list)
-          
-          kn <- kn + 1L # increment counter
-          
-          # Batch save node calculations to disk every 50 loops and 
-          # re-initialise required variables
-          
-          if ((kn - 1L) >= flush) {
-            node_batch <- dplyr::bind_rows(node_rows)
-            
-            saveRDS(
-              node_batch,
-              file = here::here(
-                "Results", "node_results",
-                paste0("node_results_batch_", node_batch_id, ".rds")
-              )
-            )
-            
-            node_rows <- list() # refresh list for future loops
-            kn <- 1L # reset node metrics loop counter
-            node_batch_id <- node_batch_id + 1L # increment batch counter
-            rm(node_batch)
-            gc(FALSE)
-          }
-          
-          rm(obs_list)
-          #gc(FALSE) # immediately bin from memory
+        
+        rm(sp_list)
+        gc(FALSE)
+        
         }
       }
       
-      rm(sp_list)
-      gc(FALSE)
+      # End of for(ds in datasets) block, this is a basic progress tracker to 
+      # print how far along the datasets we are
+      
+      message(
+        paste0(
+          "Dataset ", ds_counter, "/", ds_total,
+          " completed: ", ds,
+          " | elapsed: ",
+          round(difftime(Sys.time(), start_time, units = "mins"), 2),
+          " mins"
+        )
+      )
+    }
+  },
+  
+  # Final flush of remaining values and disconnect from db
+  
+  finally = {
+    
+    if (length(global_rows) > 0) {
+      network_batch <- dplyr::bind_rows(global_rows)
+      
+      DBI::dbWriteTable(
+        con,
+        "network_results",
+        network_batch,
+        append = DBI::dbExistsTable(con, "network_results")
+      )
+      
+      rm(network_batch)
+    }
+    
+    if (length(node_rows) > 0) {
+      node_batch <- dplyr::bind_rows(node_rows)
+      
+      DBI::dbWriteTable(
+        con,
+        "node_results",
+        node_batch,
+        append = DBI::dbExistsTable(con, "node_results")
+      )
+      
+      rm(node_batch)
+    }
+    
+    if (exists("con") && DBI::dbIsValid(con)) {
+      DBI::dbDisconnect(con, shutdown = TRUE)
     }
   }
-}
+)
 
 ##### End of loop cleanup #####
 
-# End of loop flush if results remain but kg < flush
-if (length(global_rows) > 0) {
-  network_batch <- dplyr::bind_rows(global_rows)
-  saveRDS(
-    network_batch,
-    file = here::here(
-      "Results", "network_results",
-      paste0("network_results_batch_", network_batch_id, ".rds")
-    )
-  )
-  rm(network_batch)
+rm(list = intersect(
+  c("a", "alphas", "ans", "bs", "bv", "ds", "flush", "kg", "kn",
+    "miss_levels", "ml", "node_batch_id", "network_batch_id",
+    "sp", "spotlight_pcts"),
+  ls()
+))
+
+# Disconnect db, not necessarily required but there for completeness and I am new
+# to this method
+
+if (DBI::dbIsValid(con)) {
+  DBI::dbDisconnect(con, shutdown = TRUE)
 }
-
-# End of loop flush if results remain but kn < flush
-if (length(node_rows) > 0) {
-  node_batch <- dplyr::bind_rows(node_rows)
-  saveRDS(
-    node_batch,
-    file = here::here(
-      "Results", "node_results",
-      paste0("node_results_batch_", node_batch_id, ".rds")
-    )
-  )
-  rm(node_batch)
-}
-
-# Cleanup
-
-rm(a, 
-   alphas, 
-   ans,
-   bs, 
-   bv, 
-   ds, 
-   flush, 
-   kg, 
-   kn, 
-   miss_levels, 
-   ml, 
-   node_batch_id, 
-   network_batch_id,
-   node_out_dir,
-   net_out_dir,
-   sp,
-   spotlight_pcts)
-
 
 print("Loop completed and environment cleaned")
 

@@ -429,12 +429,24 @@ n100ad3c05sim <- simulateNetworks(n100ad3c05_list,
 network_summary(n100ad3c05sim)
 plotSimNetworks(n100ad3c05sim)
 
-for (i in 1:20) {
-  plot(trial[[i]], main = paste0("sim ", i))
-}
+n100ad3c05sim2 <- simulateNetworks(n100ad3c05_list,
+                                   nmAtt = 1,
+                                   gwdeg = 1,
+                                   gwesp = 0.4,
+                                   gwdsp = 0.4,
+                                   nsim = 2)
 
+network_summary(n100ad3c05sim)
+plotSimNetworks(n100ad3c05sim)
 
+sapply(n100ad3c05sim, function(g) {
+  igraph::centr_degree(
+    intergraph::asIgraph(g),
+    normalized = TRUE
+  )$centralization
+})
 
+plotSimNetworks(iFlo)
 
 
 
