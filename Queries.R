@@ -12,7 +12,7 @@ dbListTables(con)
 # Query to check the spotlight simulation is properly biased towards degree
 
 DBI::dbGetQuery(con, "
-    WITH spotlight_assignments AS (
+  WITH spotlight_assignments AS (
     SELECT DISTINCT
       dataset,
       replicate_id,
@@ -45,8 +45,8 @@ DBI::dbGetQuery(con, "
       replicate_id,
       alpha,
       spotlight_pct,
-      AVG(CASE WHEN Spotlight = 1 THEN true_degree END) AS mean_spotlit,
-      AVG(true_degree) AS mean_network
+      AVG(CASE WHEN Spotlight = 1 THEN true_degree END) AS mean_spotlit_degree,
+      MAX(true_degree) AS max_degree_network
     FROM joined
     GROUP BY dataset, replicate_id, alpha, spotlight_pct
   )
@@ -55,9 +55,9 @@ DBI::dbGetQuery(con, "
     dataset,
     alpha,
     spotlight_pct,
-    AVG(mean_spotlit) AS mean_degree_spotlit,
-    AVG(mean_network) AS mean_degree_network,
-    AVG(mean_spotlit / mean_network) AS spotlight_degree_lift
+    AVG(mean_spotlit_degree) AS mean_spotlit_degree,
+    AVG(max_degree_network) AS mean_max_degree,
+    AVG(mean_spotlit_degree / max_degree_network) AS relative_to_max
   FROM per_network
   GROUP BY dataset, alpha, spotlight_pct
   ORDER BY dataset, alpha, spotlight_pct;
