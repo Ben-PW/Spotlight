@@ -53,6 +53,7 @@ on.exit(DBI::dbDisconnect(con, shutdown = TRUE), add = TRUE)
 
 # Toy networks for now
 
+### THIS SHOULD BE ergm::simulate_formula()
 iFlo <- stats::simulate(flo1, nsim = 100) # 100 networks per condition
 iAc1 <- stats::simulate(acct1, nsim = 100)
 iAc2 <- stats::simulate(acct2, nsim = 100)
