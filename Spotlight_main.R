@@ -218,7 +218,8 @@ tryCatch(
                 }
               
                 # Calculate node level centralities
-                node_rows[[kn]] <- computeCentralityDf(obs_list)
+                node_rows[[kn]] <- computeCentralityDf(obs_list,
+                                                       normalized = TRUE)
               
                 kn <- kn + 1L
               

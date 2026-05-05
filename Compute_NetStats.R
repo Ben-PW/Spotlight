@@ -68,16 +68,19 @@ computeCentralityDf <- function(graph_list, normalized = FALSE) {
       # ADD THE ATTRIBUTE LOGIC HERE
       
       Degree = igraph::degree(g, mode = "all", normalized = normalized),
+      
       Betweenness = igraph::betweenness(
         g,
         directed = igraph::is_directed(g),
         normalized = normalized
       ),
+      
       Closeness = igraph::closeness(
         g,
         mode = "all",
         normalized = normalized
       ),
+      
       Eigenvector = igraph::eigen_centrality(
         g,
         directed = igraph::is_directed(g)

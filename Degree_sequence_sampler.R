@@ -240,9 +240,9 @@ degree_sequence_sample_dmax <- function(nsim = 20,
 
 out <- degree_sequence_sample_dmax(
   nsim = 5,
-  size = 100,
+  size = 30,
   average_degree = 3,
-  freeman_centralisation = 0.15,
+  freeman_centralisation = 0.2,
   tolerance = 0.01,
   min_degree = 1,
   seed = 123,

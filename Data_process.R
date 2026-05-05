@@ -150,6 +150,21 @@ n50ad3c01 <- degree_sequence_sample_mcmc(
   store_trace = TRUE
 )
 
+n30ad3c02 <- degree_sequence_sample_mcmc(
+  nsim = 100,
+  size = 30,
+  average_degree = 3,
+  freeman_centralisation = 0.1,
+  tolerance = 0.1,
+  min_degree = 1,
+  burnin = 20000,
+  thin = 2000,
+  seed = 125,
+  unique_sequences = TRUE,
+  verbose = TRUE,
+  store_trace = TRUE
+)
+
 ##### c05 ####
 
 n50ad3c05 <- degree_sequence_sample_mcmc(
