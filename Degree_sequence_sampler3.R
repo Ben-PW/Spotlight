@@ -505,7 +505,7 @@ out <- degree_sequence_sample_mcmc(
   size = 30,
   average_degree = 3,
   average_degree_tolerance = 0.3,
-  freeman_centralisation = 0.1,
+  freeman_centralisation = 0.5,
   tolerance = 0.05,
   min_degree = 1,
   burnin = 20000,
