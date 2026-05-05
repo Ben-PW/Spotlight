@@ -8,6 +8,130 @@
 # - mixed proposal moves, including total-degree-changing moves
 ################################################################################
 
+############################## Utility functions for testing ###########################
+
+# Function to check descriptives of simulated networks
+network_summary <- function(net_list) {
+  
+  data.frame(
+    #target_density = 0.0066,
+    mean_density = mean(sapply(net_list, network::network.density)),
+    
+    #target_triangles = 7817,
+    mean_triangles = mean(sapply(net_list, function(g)
+      sna::triad.census(g, mode = "graph")[4])),
+    
+    #target_degree = 6.79,
+    mean_degree = mean(sapply(net_list, function(g)
+      mean(sna::degree(g, gmode = "graph")))),
+    
+    #target_max = 316,
+    mean_max_degree = mean(sapply(net_list, function(g)
+      max(sna::degree(g, gmode = "graph")))),
+    
+    #target_comp = 1,
+    mean_components = mean(sapply(net_list, function(g)
+      length(sna::component.dist(g)$csize))),
+    
+    mean_component_coverage = mean(sapply(net_list, function(g)
+      (max(sna::component.dist(g)$csize)/network.size(g))*100)),
+    
+    mean_centralisation = mean(sapply(net_list, function(g)
+      igraph::centr_degree(intergraph::asIgraph(g), normalized = TRUE)$centralization)
+    ))
+}
+
+simulateNetworks <- function(net_list, 
+                             nsim = 1,
+                             nfAtt = 0,
+                             nmAtt = 0,
+                             gwdeg = 0.5,
+                             gwesp = 0.5,
+                             gwdsp = -0.025) {
+  
+  all_sims <- list()
+  counter <- 1
+  
+  for (i in seq_along(net_list)) {
+    
+    net <- net_list[[i]]
+    
+    n <- network::network.size(net)
+    
+    # Assign attributes ONCE per basis network
+    network::set.vertex.attribute(
+      net,
+      attrname = "att",
+      value = sample(c("A", "B"), n, replace = TRUE, prob = c(3, 1))
+    )
+    
+    form <- net ~
+      nodefactor("att") +
+      nodematch("att") +
+      gwdegree(0.3, fixed = TRUE) +
+      gwesp(0.3, fixed = TRUE) +
+      gwdsp(0.3, fixed = TRUE)
+    
+    coefs <- c(
+      nodefactor.att.B = nfAtt,
+      nodematch.att = nmAtt,
+      gwdeg.fixed = gwdeg,
+      gwesp.fixed = gwesp,
+      gwdsp.fixed = gwdsp
+    )
+    
+    sim <- ergm::simulate_formula(
+      form,
+      constraints = ~degreedist,
+      coef = coefs,
+      nsim = nsim,
+      output = "network"
+    )
+    
+    # Flatten into one list
+    for (j in seq_len(nsim)) {
+      all_sims[[counter]] <- sim[[j]]
+      counter <- counter + 1
+    }
+  }
+  
+  return(all_sims)
+}
+
+netFromDegSeq <- function(degree_sequences) {
+  
+  g_list <- lapply(degree_sequences, function(x) {
+    igraph::realize_degseq(
+      x,
+      allowed.edge.types = "simple",
+      method = "smallest"
+    )
+  })
+  
+  net_list <- lapply(g_list, intergraph::asNetwork)
+  
+  return(net_list)
+}
+
+plotSimNetworks <- function(net_list) {
+  
+  obj_name <- deparse(substitute(net_list))
+  
+  # flatten one level if needed
+  if (is.list(net_list[[1]]) && !inherits(net_list[[1]], "network")) {
+    net_list <- unlist(net_list, recursive = FALSE)
+  }
+  
+  for (i in seq_along(net_list)) {
+    plot(
+      net_list[[i]],
+      main = paste0(obj_name, " ", i)
+    )
+  }
+}
+
+#################################### MCMC Chain ###############################################
+
 freeman_from_degree <- function(deg) {
   n <- length(deg)
   dmax <- max(deg)
@@ -519,5 +643,84 @@ out <- degree_sequence_sample_mcmc(
 
 unique(summarise_degseq_sample(out)[2:5])[3]
 
-unique(summarise_degseq_sample(out))
+unique(summarise_degseq_sample(out)[2:5])
 plot_degseq_trace(out)
+
+seq_tab <- data.frame(
+  seq_id = seq_along(out$degree_sequences),
+  dmax = out$dmax,
+  centralisation = out$realised_centralisation,
+  average_degree = out$realised_average_degree,
+  total_degree = out$realised_total_degree,
+  sd_degree = sapply(out$degree_sequences, sd),
+  degree_iqr = sapply(out$degree_sequences, IQR),
+  n_degree_values = sapply(out$degree_sequences, function(x) length(unique(x)))
+)
+
+unique(seq_tab[, c(
+  "dmax", "centralisation", "average_degree",
+  "total_degree", "sd_degree", "degree_iqr", "n_degree_values"
+)])
+
+out2 <- degree_sequence_sample_mcmc(
+  nsim = 50,
+  size = 30,
+  average_degree = 3,
+  average_degree_tolerance = 0.3,
+  freeman_centralisation = 0.15,
+  tolerance = 0.05,
+  min_degree = 1,
+  burnin = 20000,
+  thin = 2000,
+  seed = 123,
+  unique_sequences = TRUE,
+  verbose = TRUE,
+  store_trace = TRUE
+)
+
+
+tab <- summarise_degseq_sample(out2)
+
+tab_round <- tab %>%
+  mutate(
+    centralisation = round(centralisation, 4),
+    average_degree = round(average_degree, 4)
+  )
+
+uniq_tab <- unique(tab_round[, c("dmax", "centralisation", "average_degree", "total_degree")])
+
+keep_ids <- tab_round %>%
+  mutate(seq_id = row_number()) %>%
+  inner_join(uniq_tab,
+             by = c("dmax", "centralisation", "average_degree", "total_degree")) %>%
+  pull(seq_id)
+
+selected_degseqs <- out$degree_sequences[keep_ids]
+
+test_list <- netFromDegSeq(selected_degseqs)
+
+testsim <- simulateNetworks(test_list,
+                                  gwdeg = 1,
+                                  gwesp = 0.5,
+                                  gwdsp = -0.025,
+                                  nsim = 2)
+
+network_summary(testsim)
+plotSimNetworks(testsim)
+plot_degseq_trace(out2)
+
+seq_tab <- data.frame(
+  seq_id = seq_along(out2$degree_sequences),
+  dmax = out2$dmax,
+  centralisation = out2$realised_centralisation,
+  average_degree = out2$realised_average_degree,
+  total_degree = out2$realised_total_degree,
+  sd_degree = sapply(out2$degree_sequences, sd),
+  degree_iqr = sapply(out2$degree_sequences, IQR),
+  n_degree_values = sapply(out2$degree_sequences, function(x) length(unique(x)))
+)
+
+unique(seq_tab[, c(
+  "dmax", "centralisation", "average_degree",
+  "total_degree", "sd_degree", "degree_iqr", "n_degree_values"
+)])
