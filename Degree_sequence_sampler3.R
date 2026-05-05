@@ -624,6 +624,14 @@ plot_degseq_trace <- function(out) {
 # Test example
 ################################################################################
 
+# testsim <- simulateNetworks(test_list,          # These parameters resulted in an 
+#                            nmAtt = 0.5,         # average component number of 1.56
+#                            gwdeg = 1,           # reducing gwesp and adding in nmAtt
+#                            gwesp = 0.3,         # seemed to help things
+#                            gwdsp = -0.025,
+#                            nsim = 2)
+
+
 out <- degree_sequence_sample_mcmc(
   nsim = 50,
   size = 30,
@@ -700,8 +708,9 @@ selected_degseqs <- out$degree_sequences[keep_ids]
 test_list <- netFromDegSeq(selected_degseqs)
 
 testsim <- simulateNetworks(test_list,
+                                  nmAtt = 0.5,
                                   gwdeg = 1,
-                                  gwesp = 0.5,
+                                  gwesp = 0.3,
                                   gwdsp = -0.025,
                                   nsim = 2)
 
