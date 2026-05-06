@@ -733,3 +733,155 @@ unique(seq_tab[, c(
   "dmax", "centralisation", "average_degree",
   "total_degree", "sd_degree", "degree_iqr", "n_degree_values"
 )])
+
+
+##############################                               ###########################
+############################## Simulating connected networks ###########################
+##############################                               ###########################
+
+is_connected_network <- function(net) {
+  comp <- sna::component.dist(net)
+  length(comp$csize) == 1L
+}
+
+simulateNetworks <- function(net_list, 
+                                       target_connected = 1,
+                                       max_attempts = 100,
+                                       require_connected = TRUE,
+                                       nfAtt = 0,
+                                       nmAtt = 0,
+                                       gwdeg = 0.5,
+                                       gwesp = 0.5,
+                                       gwdsp = -0.025,
+                                       att_prob = c(3, 1),
+                                       verbose = TRUE) {
+  
+  all_sims <- list()
+  diagnostics <- list()
+  counter <- 1L
+  
+  for (i in seq_along(net_list)) {
+    
+    net <- net_list[[i]]
+    n <- network::network.size(net)
+    
+    deg <- sna::degree(net, gmode = "graph")
+    
+    accepted <- 0L
+    attempted <- 0L
+    rejected <- 0L
+    
+    network::set.vertex.attribute(
+      net,
+      attrname = "att",
+      value = sample(c("A", "B"), n, replace = TRUE, prob = att_prob)
+    )
+    
+    form <- net ~
+      nodefactor("att") +
+      nodematch("att") +
+      gwdegree(0.3, fixed = TRUE) +
+      gwesp(0.3, fixed = TRUE) +
+      gwdsp(0.3, fixed = TRUE)
+    
+    coefs <- c(
+      nodefactor.att.B = nfAtt,
+      nodematch.att = nmAtt,
+      gwdeg.fixed = gwdeg,
+      gwesp.fixed = gwesp,
+      gwdsp.fixed = gwdsp
+    )
+    
+    while (accepted < target_connected && attempted < max_attempts) {
+      
+      attempted <- attempted + 1L
+      
+      sim <- suppressMessages(
+        ergm::simulate_formula(
+        form,
+        constraints = ~degreedist,
+        coef = coefs,
+        nsim = 1,
+        output = "network")
+      )
+      
+      if (inherits(sim, "network")) {
+        sim_net <- sim
+      } else {
+        sim_net <- sim[[1]]
+      }
+      
+      connected <- is_connected_network(sim_net)
+      
+      if (!require_connected || connected) {
+        
+        accepted <- accepted + 1L
+        
+        network::set.network.attribute(sim_net, "basis_id", i)
+        network::set.network.attribute(sim_net, "attempt_id", attempted)
+        network::set.network.attribute(sim_net, "accepted_id", accepted)
+        network::set.network.attribute(sim_net, "connected", connected)
+        
+        network::set.network.attribute(sim_net, "basis_dmax", max(deg))
+        network::set.network.attribute(sim_net, "basis_average_degree", mean(deg))
+        network::set.network.attribute(sim_net, "basis_total_degree", sum(deg))
+        network::set.network.attribute(sim_net, "basis_sd_degree", stats::sd(deg))
+        network::set.network.attribute(sim_net, "basis_degree_iqr", stats::IQR(deg))
+        network::set.network.attribute(sim_net, "basis_n_degree_values", length(unique(deg)))
+        
+        all_sims[[counter]] <- sim_net
+        counter <- counter + 1L
+        
+      } else {
+        rejected <- rejected + 1L
+      }
+    }
+    
+    diagnostics[[i]] <- data.frame(
+      basis_id = i,
+      attempted = attempted,
+      accepted = accepted,
+      rejected = attempted - accepted,
+      success_rate = accepted / attempted,
+      target_connected = target_connected,
+      target_met = accepted >= target_connected,
+      dmax = max(deg),
+      average_degree = mean(deg),
+      total_degree = sum(deg),
+      sd_degree = stats::sd(deg),
+      degree_iqr = stats::IQR(deg),
+      n_degree_values = length(unique(deg))
+    )
+    
+    if (verbose) {
+      message(
+        "Basis ", i, "/", length(net_list),
+        " | accepted ", accepted, "/", target_connected,
+        " | attempts = ", attempted,
+        " | success rate = ", round(accepted / attempted, 3)
+      )
+    }
+  }
+  
+  list(
+    networks = all_sims,
+    diagnostics = dplyr::bind_rows(diagnostics)
+  )
+}
+
+newTest <- simulateNetworks(test_list,
+                           target_connected = 5,
+                           nmAtt = 0.5,
+                           gwdeg = 1,
+                           gwesp = 0.3,
+                           gwdsp = -0.025)
+
+newTest$diagnostics
+
+diag <- newTest$diagnostics
+
+diag[diag$target_met == FALSE, ]
+
+summary(diag$success_rate)
+
+diag[order(diag$success_rate), ]
