@@ -885,3 +885,5 @@ diag[diag$target_met == FALSE, ]
 summary(diag$success_rate)
 
 diag[order(diag$success_rate), ]
+
+plotSimNetworks(newTest$networks)
