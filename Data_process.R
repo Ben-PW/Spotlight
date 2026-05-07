@@ -129,18 +129,19 @@ plotSimNetworks <- function(net_list) {
 }
 ############################## Generate degree sequences #############################
 
-######################## n50 ####
+######################## n20 ####
 
 ############## ad3 ####
 
 ##### c01 ####
 
-n50ad3c01 <- degree_sequence_sample_mcmc(
+n20ad3c015 <- degree_sequence_sample_mcmc(
   nsim = 10,
-  size = 50,
+  size = 20,
   average_degree = 3,
-  freeman_centralisation = 0.1,
-  tolerance = 0.01,
+  average_degree_tolerance = 0.3,
+  freeman_centralisation = 0.15,
+  tolerance = 0.05,
   min_degree = 1,
   burnin = 20000,
   thin = 2000,

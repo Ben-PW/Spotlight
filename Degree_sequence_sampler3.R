@@ -403,6 +403,7 @@ degree_sequence_sample_mcmc <- function(nsim = 20,
     )
     
     prop <- move$prop
+    
     if (is.null(prop)) next
     
     prop_c <- freeman_from_degree(prop)
@@ -439,6 +440,7 @@ degree_sequence_sample_mcmc <- function(nsim = 20,
   total_steps <- 0L
   accepted_moves <- 0L
   attempted_moves <- 0L
+  seen_dmax <- integer(0)
   
   move_attempts <- setNames(rep(0L, length(move_probs)), names(move_probs))
   move_accepts <- setNames(rep(0L, length(move_probs)), names(move_probs))
@@ -476,17 +478,62 @@ degree_sequence_sample_mcmc <- function(nsim = 20,
     if (!is.null(prop)) {
       attempted_moves <- attempted_moves + 1L
       prop_c <- freeman_from_degree(prop)
+      prop_avg <- mean(prop)
+      
+      ############################ CHANGED THIS SECTION
+      ################ Immediately returns any new value of dmax
       
       if (
         abs(prop_c - freeman_centralisation) <= tolerance &&
-        within_avg_degree_band(prop, average_degree, average_degree_tolerance) &&
+        abs(prop_avg - average_degree) <= average_degree_tolerance &&
+        min(prop) >= min_degree &&
         is_graphical_safe(prop)
       ) {
+        
         current <- prop
         current_c <- prop_c
         accepted_moves <- accepted_moves + 1L
         move_accepts[move_type] <- move_accepts[move_type] + 1L
         accepted <- TRUE
+        
+        # Save immediately if this is a new dmax value
+        this_dmax <- max(current)
+        
+        if (!(this_dmax %in% seen_dmax) && saved < nsim) {
+          
+          seen_dmax <- c(seen_dmax, this_dmax)
+          
+          key <- paste(current, collapse = "-")
+          
+          if (!unique_sequences || !(key %in% seen)) {
+            saved <- saved + 1L
+            
+            out[[saved]] <- list(
+              degree_sequence = current,
+              dmax = this_dmax,
+              realised_centralisation = current_c,
+              realised_average_degree = mean(current),
+              realised_total_degree = sum(current)
+            )
+            
+            
+            
+            if (unique_sequences) {
+              seen <- c(seen, key)
+            }
+            
+            if (verbose) {
+              message(
+                "Saved ", saved, "/", nsim,
+                " | step = ", total_steps,
+                " | dmax = ", max(current),
+                " | C = ", round(current_c, 4),
+                " | avg degree = ", round(mean(current), 4),
+                " | total degree = ", sum(current)
+              )
+            }
+          }
+        }
       }
     }
     
@@ -503,6 +550,18 @@ degree_sequence_sample_mcmc <- function(nsim = 20,
     }
     
     if (total_steps > burnin && ((total_steps - burnin) %% thin == 0)) {
+      
+      current_c <- freeman_from_degree(current)
+      
+      if (
+        abs(current_c - freeman_centralisation) > tolerance ||
+        abs(mean(current) - average_degree) > average_degree_tolerance ||
+        min(current) < min_degree ||
+        !is_graphical_safe(current)
+      ) {
+        next
+      }
+      
       key <- paste(current, collapse = "-")
       
       if (unique_sequences && key %in% seen) next
@@ -620,6 +679,7 @@ plot_degseq_trace <- function(out) {
   )
 }
 
+
 ################################################################################
 # Test example
 ################################################################################
@@ -673,7 +733,7 @@ unique(seq_tab[, c(
 out2 <- degree_sequence_sample_mcmc(
   nsim = 50,
   size = 30,
-  average_degree = 3,
+  average_degree = 5,
   average_degree_tolerance = 0.3,
   freeman_centralisation = 0.15,
   tolerance = 0.05,
@@ -686,6 +746,7 @@ out2 <- degree_sequence_sample_mcmc(
   store_trace = TRUE
 )
 
+unique(summarise_degseq_sample(out2)[2:5])
 
 tab <- summarise_degseq_sample(out2)
 
@@ -697,6 +758,7 @@ tab_round <- tab %>%
 
 uniq_tab <- unique(tab_round[, c("dmax", "centralisation", "average_degree", "total_degree")])
 
+uniq_tab
 keep_ids <- tab_round %>%
   mutate(seq_id = row_number()) %>%
   inner_join(uniq_tab,
@@ -887,3 +949,79 @@ summary(diag$success_rate)
 diag[order(diag$success_rate), ]
 
 plotSimNetworks(newTest$networks)
+
+################################################################################
+
+# Testing new parameter tolerances
+
+# For AD
+# N = 30, AD tol = 0.3
+# N = 60, AD tol = 0.59
+# N = 120, AD tol = 1.19
+
+# I am slightly concerned with AD3 and N120 as this is quite sparse,
+# there are cases like this in the literature, however
+
+# I think shifting to C0.4 is a good move
+
+summarise_degseq_features <- function(out) {
+  data.frame(
+    seq_id = seq_along(out$degree_sequences),
+    dmax = out$dmax,
+    centralisation = round(out$realised_centralisation, 3),
+    average_degree = round(out$realised_average_degree, 3),
+    total_degree = sapply(out$degree_sequences, sum),
+    sd_degree = round(sapply(out$degree_sequences, sd), 3),
+    degree_iqr = sapply(out$degree_sequences, IQR),
+    n_degree_values = sapply(out$degree_sequences, function(x) length(unique(x)))
+  )
+}
+
+##################### Stress test: Low N, High C
+
+n30ad3c0.4 <- degree_sequence_sample_mcmc(
+  nsim = 50,
+  size = 30,
+  average_degree = 3,
+  average_degree_tolerance = 0.3,
+  freeman_centralisation = 0.4,
+  tolerance = 0.05,
+  min_degree = 1,
+  burnin = 20000,
+  thin = 2000,
+  seed = 123,
+  unique_sequences = TRUE,
+  verbose = TRUE,
+  store_trace = TRUE
+)
+
+summarise_degseq_features(n30ad3c0.4)
+
+n30ad3c04_ids <- summarise_degseq_features(n30ad3c0.4) %>%
+  distinct(across(c("dmax", 
+                    #"centralisation", 
+                    "average_degree", 
+                    "degree_iqr"#, "n_degree_values"
+                    )),
+           .keep_all = TRUE) %>%
+  pull(seq_id)
+
+n30ad3c0.4$degree_sequences[n30ad3c04_ids]
+
+############################# Stress test, Low N, Low C
+
+n30ad3c0.4 <- degree_sequence_sample_mcmc(
+  nsim = 50,
+  size = 30,
+  average_degree = 3,
+  average_degree_tolerance = 0.3,
+  freeman_centralisation = 0.1,
+  tolerance = 0.05,
+  min_degree = 1,
+  burnin = 20000,
+  thin = 2000,
+  seed = 123,
+  unique_sequences = TRUE,
+  verbose = TRUE,
+  store_trace = TRUE
+)
