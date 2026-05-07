@@ -351,7 +351,11 @@ degree_sequence_profile_sampler <- function(
   attempted_moves <- 0L
   accepted_moves <- 0L
   
-  while (saved < nsim && total_steps < max_steps) {
+  ########################################### CHANGE HERE
+  
+  while (
+    # saved < nsim && removed the limit, sampler just explores until done
+    total_steps < max_steps) {
     
     total_steps <- total_steps + 1L
     
@@ -437,6 +441,23 @@ degree_sequence_profile_sampler <- function(
 
 ################################################################################
 
+############### Helper function to check output
+
+summarise_degseq_features <- function(out) {
+  data.frame(
+    seq_id = seq_along(out$degree_sequences),
+    dmax = out$dmax,
+    centralisation = round(out$realised_centralisation, 3),
+    average_degree = round(out$realised_average_degree, 3),
+    total_degree = sapply(out$degree_sequences, sum),
+    sd_degree = round(sapply(out$degree_sequences, sd), 3),
+    degree_iqr = sapply(out$degree_sequences, IQR),
+    n_degree_values = sapply(out$degree_sequences, function(x) length(unique(x)))
+  )
+}
+
+############### Low size, low avdeg, low c
+
 n30_ad3_c01 <- degree_sequence_profile_sampler(
   nsim = 50,
   size = 30,
@@ -464,3 +485,154 @@ summarise_degseq_features(n30ad3c0.4) %>%
                     "centralisation", 
                     #"average_degree" #, 
                     "degree_iqr"#, "n_degree_values"
+  )),
+  .keep_all = TRUE)
+
+###################### Low size, high avdeg, low C
+
+# 15 sequences
+n30_ad6_c01 <- degree_sequence_profile_sampler(
+  nsim = 50,
+  size = 30,
+  average_degree = 6,
+  average_degree_tolerance = 0.3,
+  freeman_centralisation = 0.1,
+  tolerance = 0.05,
+  min_degree = 1,
+  seed = 123
+)
+
+seq_tab <- summarise_degseq_features(n30_ad6_c01)
+
+# Bin by density and centralisation values and sample from within
+selected_ids <- seq_tab %>%
+  mutate(
+    ad_bin = cut(average_degree, breaks = 3),
+    c_bin  = cut(centralisation, breaks = 3),
+    iqr_bin = cut(degree_iqr, breaks = 2)
+  ) %>%
+  group_by(ad_bin, c_bin, iqr_bin) %>%
+  slice_sample(n = 1) %>%
+  ungroup() %>%
+  slice_sample(n = 10) %>%
+  pull(seq_id)
+
+selected_degseqs <- n30_ad6_c01$degree_sequences[selected_ids]
+
+selected_degseqs
+
+#################### Low size, low avdeg, high C
+
+n30_ad3_c05 <- degree_sequence_profile_sampler(
+  nsim = 50,
+  size = 30,
+  average_degree = 6,
+  average_degree_tolerance = 0.3,
+  freeman_centralisation = 0.5,
+  tolerance = 0.05,
+  min_degree = 1,
+  seed = 123
+)
+
+################# High size, low avdeg, low c
+
+n120_ad3_c01 <- degree_sequence_profile_sampler(
+  nsim = 500,
+  size = 120,
+  average_degree = 3,
+  average_degree_tolerance = 1.29,
+  freeman_centralisation = 0.1,
+  tolerance = 0.05,
+  min_degree = 1,
+  seed = 123
+)
+
+tb <- summarise_degseq_features(n120_ad3_c01)
+tb %>%
+  summarise(
+    n = n(),
+    min_ad = min(average_degree),
+    max_ad = max(average_degree),
+    mean_ad = mean(average_degree),
+    min_c = min(centralisation),
+    max_c = max(centralisation),
+    min_dmax = min(dmax),
+    max_dmax = max(dmax)
+  )
+
+tb
+
+#################### High size, high avdeg, low c
+
+n120_ad6_c01 <- degree_sequence_profile_sampler(
+  nsim = 500,
+  size = 120,
+  average_degree = 6,
+  average_degree_tolerance = 1.29,
+  freeman_centralisation = 0.1,
+  tolerance = 0.05,
+  min_degree = 1,
+  seed = 123
+)
+
+tb <- summarise_degseq_features(n120_ad6_c01)
+tb %>%
+  summarise(
+    n = n(),
+    min_ad = min(average_degree),
+    max_ad = max(average_degree),
+    mean_ad = mean(average_degree),
+    min_c = min(centralisation),
+    max_c = max(centralisation),
+    min_dmax = min(dmax),
+    max_dmax = max(dmax)
+  )
+
+####################### High size, high avdeg, high c
+
+n120_ad6_c05 <- degree_sequence_profile_sampler(
+  nsim = 500,
+  size = 120,
+  average_degree = 6,
+  average_degree_tolerance = 1.29,
+  freeman_centralisation = 0.5,
+  tolerance = 0.05,
+  min_degree = 1,
+  seed = 123
+)
+
+tb <- summarise_degseq_features(n120_ad6_c05)
+tb %>%
+  summarise(
+    n = n(),
+    min_ad = min(average_degree),
+    max_ad = max(average_degree),
+    mean_ad = mean(average_degree),
+    min_c = min(centralisation),
+    mean_c = mean(centralisation),
+    max_c = max(centralisation),
+    min_dmax = min(dmax),
+    max_dmax = max(dmax)
+  )
+
+######## testing sampling from generated distributions
+
+# for each cell
+
+seq_tab <- summarise_degseq_features(n120_ad6_c05)
+
+# Bin by density and centralisation values and sample from within
+selected_ids <- seq_tab %>%
+  mutate(
+    ad_bin = cut(average_degree, breaks = 3),
+    c_bin  = cut(centralisation, breaks = 3),
+    iqr_bin = cut(degree_iqr, breaks = 2)
+  ) %>%
+  group_by(ad_bin, c_bin, iqr_bin) %>%
+  slice_sample(n = 1) %>%
+  ungroup() %>%
+  pull(seq_id)
+
+selected_degseqs <- n120_ad6_c05$degree_sequences[selected_ids]
+
+selected_degseqs

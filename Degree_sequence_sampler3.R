@@ -637,47 +637,7 @@ summarise_degseq_sample <- function(out) {
   )
 }
 
-plot_degseq_trace <- function(out) {
-  if (is.null(out$trace)) stop("No trace stored in output.")
-  
-  oldpar <- par(no.readonly = TRUE)
-  on.exit(par(oldpar))
-  
-  par(mfrow = c(1, 3))
-  
-  plot(
-    out$trace$step,
-    out$trace$centralisation,
-    type = "l",
-    xlab = "Step",
-    ylab = "Freeman centralisation",
-    main = "Trace: centralisation"
-  )
-  abline(h = out$freeman_target, lty = 2)
-  abline(h = out$freeman_target + out$tolerance, lty = 3)
-  abline(h = out$freeman_target - out$tolerance, lty = 3)
-  
-  plot(
-    out$trace$step,
-    out$trace$average_degree,
-    type = "l",
-    xlab = "Step",
-    ylab = "Average degree",
-    main = "Trace: average degree"
-  )
-  abline(h = out$average_degree_target, lty = 2)
-  abline(h = out$average_degree_target + out$average_degree_tolerance, lty = 3)
-  abline(h = out$average_degree_target - out$average_degree_tolerance, lty = 3)
-  
-  plot(
-    out$trace$step,
-    out$trace$dmax,
-    type = "l",
-    xlab = "Step",
-    ylab = "Maximum degree",
-    main = "Trace: dmax"
-  )
-}
+
 
 
 ################################################################################
