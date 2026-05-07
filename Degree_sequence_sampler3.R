@@ -1025,3 +1025,55 @@ n30ad3c0.4 <- degree_sequence_sample_mcmc(
   verbose = TRUE,
   store_trace = TRUE
 )
+
+summarise_degseq_features(n30ad3c0.4)
+
+summarise_degseq_features(n30ad3c0.4) %>%
+  distinct(across(c("dmax", 
+                    "centralisation", 
+                    "average_degree" #, 
+                    #"degree_iqr"#, "n_degree_values"
+  )),
+  .keep_all = TRUE)
+
+
+summarise_degseq_features(n30ad3c0.4) %>%
+  distinct(across(c("dmax", 
+                    "centralisation", 
+                    #"average_degree" #, 
+                    "degree_iqr"#, "n_degree_values"
+  )),
+  .keep_all = TRUE)
+
+############################# Stress test, Low N, Low C, High AD
+
+n30ad3c01 <- degree_sequence_sample_mcmc(
+  nsim = 50,
+  size = 30,
+  average_degree = 6,
+  average_degree_tolerance = 0.3,
+  freeman_centralisation = 0.1,
+  tolerance = 0.05,
+  min_degree = 1,
+  burnin = 20000,
+  thin = 2000,
+  seed = 123,
+  unique_sequences = TRUE,
+  verbose = TRUE,
+  store_trace = TRUE
+)
+
+summarise_degseq_features(n30ad3c0.4) %>%
+  distinct(across(c("dmax", 
+                    "centralisation", 
+                    "average_degree" #, 
+                    #"degree_iqr"#, "n_degree_values"
+  )),
+  .keep_all = TRUE)
+
+
+summarise_degseq_features(n30ad3c0.4) %>%
+  distinct(across(c("dmax", 
+                    "centralisation", 
+                    #"average_degree" #, 
+                    "degree_iqr"#, "n_degree_values"
