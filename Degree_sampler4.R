@@ -1,3 +1,221 @@
+
+
+
+############# Function to calculate Freeman centrality from deg seq
+
+freeman_from_degree <- function(deg) {
+  n <- length(deg)
+  dmax <- max(deg)
+  sum(dmax - deg) / ((n - 1) * (n - 2))
+}
+
+
+############ Gets correct igraph function depending on version
+
+is_graphical_safe <- function(deg) {
+  if ("is_graphical" %in% getNamespaceExports("igraph")) {
+    return(igraph::is_graphical(deg, allowed.edge.types = "simple"))
+  }
+  
+  if ("is.graphical.degree.sequence" %in% getNamespaceExports("igraph")) {
+    return(igraph::is.graphical.degree.sequence(deg))
+  }
+  
+  stop("No graphical degree-sequence checker found in igraph.")
+}
+
+############### Calculates total degree of network from size and avdeg
+
+get_total_degree <- function(size, average_degree) {
+  total_degree <- round(size * average_degree)
+  
+  if ((total_degree %% 2) != 0) {
+    total_degree <- total_degree + 1L
+  }
+  
+  total_degree
+}
+
+#################### Constructs starting deg seq
+
+construct_initial_degseq <- function(size,
+                                     total_degree,
+                                     min_degree = 1L,
+                                     max_tries = 10000) {
+  
+  n <- as.integer(size)
+  
+  min_sum <- n * min_degree
+  max_sum <- n * (n - 1L)
+  
+  if (total_degree < min_sum || total_degree > max_sum) {
+    stop("total_degree incompatible with size and min_degree.")
+  }
+  
+  for (attempt in seq_len(max_tries)) {
+    deg <- rep.int(min_degree, n)
+    rem <- total_degree - sum(deg)
+    
+    while (rem > 0) {
+      eligible <- which(deg < (n - 1L))
+      if (length(eligible) == 0) break
+      
+      i <- sample(eligible, 1)
+      deg[i] <- deg[i] + 1L
+      rem <- rem - 1L
+    }
+    
+    if (rem != 0) next
+    
+    deg <- sample(deg)
+    deg <- sort(deg, decreasing = TRUE)
+    
+    if (sum(deg) != total_degree) next
+    if (min(deg) < min_degree) next
+    if (!is_graphical_safe(deg)) next
+    
+    return(deg)
+  }
+  
+  NULL
+}
+
+
+############################ Proposal moves for random walk
+# These are mixed as increments of 1 did not lead to much variation
+
+
+propose_move_1 <- function(deg, min_degree = 1L) {
+  n <- length(deg)
+  
+  donors <- which(deg > min_degree)
+  recipients <- which(deg < (n - 1L))
+  
+  if (length(donors) == 0 || length(recipients) == 0) return(NULL)
+  
+  i <- sample(donors, 1)
+  j <- sample(recipients, 1)
+  
+  if (i == j) return(NULL)
+  
+  prop <- deg
+  prop[i] <- prop[i] - 1L
+  prop[j] <- prop[j] + 1L
+  
+  sort(prop, decreasing = TRUE)
+}
+
+propose_move_2split <- function(deg, min_degree = 1L) {
+  n <- length(deg)
+  
+  donors <- which(deg >= (min_degree + 2L))
+  recipients <- which(deg < (n - 1L))
+  
+  if (length(donors) == 0 || length(recipients) < 2) return(NULL)
+  
+  i <- sample(donors, 1)
+  recips <- setdiff(recipients, i)
+  
+  if (length(recips) < 2) return(NULL)
+  
+  js <- sample(recips, 2, replace = FALSE)
+  
+  prop <- deg
+  prop[i] <- prop[i] - 2L
+  prop[js[1]] <- prop[js[1]] + 1L
+  prop[js[2]] <- prop[js[2]] + 1L
+  
+  sort(prop, decreasing = TRUE)
+}
+
+propose_move_2merge <- function(deg, min_degree = 1L) {
+  n <- length(deg)
+  
+  donors <- which(deg > min_degree)
+  recipients <- which(deg <= (n - 3L))
+  
+  if (length(donors) < 2 || length(recipients) == 0) return(NULL)
+  
+  j <- sample(recipients, 1)
+  dons <- setdiff(donors, j)
+  
+  if (length(dons) < 2) return(NULL)
+  
+  is <- sample(dons, 2, replace = FALSE)
+  
+  prop <- deg
+  prop[is[1]] <- prop[is[1]] - 1L
+  prop[is[2]] <- prop[is[2]] - 1L
+  prop[j] <- prop[j] + 2L
+  
+  sort(prop, decreasing = TRUE)
+}
+
+propose_add_2 <- function(deg) {
+  n <- length(deg)
+  
+  recipients <- which(deg <= (n - 3L))
+  if (length(recipients) == 0) return(NULL)
+  
+  j <- sample(recipients, 1)
+  
+  prop <- deg
+  prop[j] <- prop[j] + 2L
+  
+  if (prop[j] > (n - 1L)) return(NULL)
+  
+  sort(prop, decreasing = TRUE)
+}
+
+propose_drop_2 <- function(deg, min_degree = 1L) {
+  donors <- which(deg >= (min_degree + 2L))
+  if (length(donors) == 0) return(NULL)
+  
+  i <- sample(donors, 1)
+  
+  prop <- deg
+  prop[i] <- prop[i] - 2L
+  
+  if (min(prop) < min_degree) return(NULL)
+  
+  sort(prop, decreasing = TRUE)
+}
+
+propose_degseq_move_mixed <- function(deg,
+                                      min_degree = 1L,
+                                      move_probs = c(
+                                        move1 = 0.40,
+                                        split2 = 0.20,
+                                        merge2 = 0.20,
+                                        add2 = 0.10,
+                                        drop2 = 0.10
+                                      )) {
+  
+  move_type <- sample(names(move_probs), size = 1, prob = move_probs)
+  
+  if (move_type == "move1") {
+    prop <- propose_move_1(deg, min_degree = min_degree)
+  } else if (move_type == "split2") {
+    prop <- propose_move_2split(deg, min_degree = min_degree)
+  } else if (move_type == "merge2") {
+    prop <- propose_move_2merge(deg, min_degree = min_degree)
+  } else if (move_type == "add2") {
+    prop <- propose_add_2(deg)
+  } else if (move_type == "drop2") {
+    prop <- propose_drop_2(deg, min_degree = min_degree)
+  } else {
+    stop("Unknown move type.")
+  }
+  
+  list(prop = prop, move_type = move_type)
+}
+
+################################################################################
+
+# Main sampler
+
+################################################################################
+
 degree_sequence_profile_sampler <- function(
     nsim,
     size,
@@ -122,7 +340,7 @@ degree_sequence_profile_sampler <- function(
     )
   }
   
-  # ---- profile collection ----
+  # profile collection
   
   out <- vector("list", nsim)
   seen_profiles <- character(0)
@@ -212,6 +430,12 @@ degree_sequence_profile_sampler <- function(
     init_steps = init_steps
   )
 }
+
+################################################################################
+
+# Testing 
+
+################################################################################
 
 n30_ad3_c01 <- degree_sequence_profile_sampler(
   nsim = 50,
