@@ -3,6 +3,9 @@
 # This is the script for the ERGM simulator used to convert the degree sequences
 # into more realistic network formats
 
+# Keep all function calls specified as package::function as igraph and network
+# packages do not play nicely with each other
+
 ################################################################################
 
 # Check components to determine if networks are connected or not
@@ -77,7 +80,8 @@ simulateNetworks <- function(net_list,
           form,
           constraints = ~degreedist, # constrain degree distribution to basis
           coef = coefs,
-          nsim = 1,
+          nsim = 1, # this needs to be fixed at 1 for diagnostics to be correct,
+                    # number of generated networks is determined by target_connected
           output = "network")
       )
       

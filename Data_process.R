@@ -4,7 +4,8 @@
 
 #####################################################################################################
 
-source("Degree_sequence_sampler2.R")
+source("Degree_sampler4.R")
+source("ERGM_simulator.R")
 
 here::here()
 
