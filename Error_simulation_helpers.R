@@ -26,6 +26,85 @@ IDNodes <- function(graph_list){
   })
 }
 
+# Below function no longer required, kept for now in case of any 
+# unforseen downstream effects fo removing
+
+#tagGraphs_init <- function(graph_list,
+#                           dataset,
+#                           source,
+#                           alpha = NA_real_,
+#                           spotlight_pct = NA_real_,
+#                           b = NA_real_,
+#                           miss_level = NA_real_) {
+#  purrr::imap(graph_list, function(g, replicate_id) {
+#    igraph::graph_attr(g, "dataset") <- dataset
+#    igraph::graph_attr(g, "replicate_id") <- as.integer(replicate_id)
+#    igraph::graph_attr(g, "source") <- source
+#    igraph::graph_attr(g, "alpha") <- alpha
+#    igraph::graph_attr(g, "spotlight_pct") <- spotlight_pct
+#    igraph::graph_attr(g, "b") <- b
+#    igraph::graph_attr(g, "miss_level") <- miss_level
+#    g
+#  })
+#}
+
+
+# Function to create a unique graph id within the spotlight loop
+makeGraphID <- function(dataset, replicate_id, source,
+                        alpha = NA_real_,
+                        spotlight_pct = NA_real_,
+                        b = NA_real_,
+                        miss_level = NA_real_) {
+  paste(
+    paste0("ds_", dataset),
+    paste0("rep_", replicate_id),
+    paste0("src_", source),
+    paste0("a_", alpha),
+    paste0("sp_", spotlight_pct),
+    paste0("b_", b),
+    paste0("ml_", miss_level),
+    sep = "__"
+  )
+}
+
+# Function to create and assign graph metadata, including graph id, to the 
+# graph as a graph attribute
+
+tagGraphs <- function(graph_list,
+                      dataset,
+                      source,
+                      alpha = NA_real_,
+                      spotlight_pct = NA_real_,
+                      b = NA_real_,
+                      miss_level = NA_real_) {
+  purrr::imap(graph_list, function(g, replicate_id) {
+    replicate_id <- as.integer(replicate_id)
+    
+    igraph::graph_attr(g, "dataset") <- dataset
+    igraph::graph_attr(g, "replicate_id") <- replicate_id # this is just graph position in list
+    igraph::graph_attr(g, "source") <- source
+    igraph::graph_attr(g, "alpha") <- alpha
+    igraph::graph_attr(g, "spotlight_pct") <- spotlight_pct
+    igraph::graph_attr(g, "b") <- b
+    igraph::graph_attr(g, "miss_level") <- miss_level
+    igraph::graph_attr(g, "graph_id") <- makeGraphID(
+      dataset = dataset,
+      replicate_id = replicate_id,
+      source = source,
+      alpha = alpha,
+      spotlight_pct = spotlight_pct,
+      b = b,
+      miss_level = miss_level
+    )
+    
+    g
+  })
+}
+
+
+# Compute network level metrics over a list of networks and store as tibble
+# with graph metadata extracted from graph attributes
+
 computeMetrics <- function(graph_list) {
   purrr::map_dfr(graph_list, function(g) {
     tibble::tibble(
@@ -36,7 +115,6 @@ computeMetrics <- function(graph_list) {
       spotlight_pct = igraph::graph_attr(g, "spotlight_pct"),
       b = igraph::graph_attr(g, "b"),
       miss_level = igraph::graph_attr(g, "miss_level"),
-      #stage = igraph::graph_attr(g, "stage"),
       graph_id = igraph::graph_attr(g, "graph_id"),
       
       density = igraph::edge_density(g, loops = FALSE),
@@ -50,6 +128,9 @@ computeMetrics <- function(graph_list) {
     )
   })
 }
+
+# Compute node level metrics over a list of networks and store as tibble, with
+# graph metadata extrcated from graph attributes
 
 computeCentralityDf <- function(graph_list, normalized = FALSE) {
   purrr::map_dfr(graph_list, function(g) {

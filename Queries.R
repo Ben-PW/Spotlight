@@ -187,3 +187,211 @@ ORDER BY
     obs.b,
     obs.miss_level
 ")
+
+################################# Trialing a model ###################################
+
+model_df <- DBI::dbGetQuery(con, "
+SELECT
+    obs.dataset,
+    obs.replicate_id,
+    obs.alpha,
+    obs.spotlight_pct,
+    obs.b,
+    obs.miss_level,
+
+    net.density AS gt_density,
+    net.dcent AS gt_centralisation,
+    net.clustering AS gt_clustering,
+    net.APL AS gt_APL,
+    net.size AS gt_size,
+
+    COUNT(*) AS n_nodes,
+
+    AVG(CASE 
+          WHEN obs.Spotlight = 1 
+          THEN obs.Degree - gt.Degree 
+        END) AS mean_degree_bias_spotlit,
+
+    AVG(CASE 
+          WHEN obs.Spotlight = 0 
+          THEN obs.Degree - gt.Degree 
+        END) AS mean_degree_bias_nonspotlit,
+
+    AVG(CASE 
+          WHEN obs.Spotlight = 1 
+          THEN obs.Degree - gt.Degree 
+        END)
+    -
+    AVG(CASE 
+          WHEN obs.Spotlight = 0 
+          THEN obs.Degree - gt.Degree 
+        END) AS degree_spotlight_lift,
+
+    AVG(CASE 
+          WHEN obs.Spotlight = 1 
+          THEN obs.Betweenness - gt.Betweenness 
+        END)
+    -
+    AVG(CASE 
+          WHEN obs.Spotlight = 0 
+          THEN obs.Betweenness - gt.Betweenness 
+        END) AS betweenness_spotlight_lift,
+
+    AVG(CASE 
+          WHEN obs.Spotlight = 1 
+          THEN obs.Eigenvector - gt.Eigenvector 
+        END)
+    -
+    AVG(CASE 
+          WHEN obs.Spotlight = 0 
+          THEN obs.Eigenvector - gt.Eigenvector 
+        END) AS eigenvector_spotlight_lift
+
+FROM node_results AS obs
+
+JOIN node_results_GT AS gt
+  ON obs.dataset = gt.dataset
+ AND obs.replicate_id = gt.replicate_id
+ AND obs.NodeID = gt.NodeID
+
+LEFT JOIN network_results_GT AS net
+  ON obs.dataset = net.dataset
+ AND obs.replicate_id = net.replicate_id
+
+WHERE obs.source = 'observed'
+  AND gt.source = 'true'
+  AND net.source = 'true'
+
+GROUP BY
+    obs.dataset,
+    obs.replicate_id,
+    obs.alpha,
+    obs.spotlight_pct,
+    obs.b,
+    obs.miss_level,
+    net.density,
+    net.dcent,
+    net.clustering,
+    net.APL,
+    net.size
+
+ORDER BY
+    obs.dataset,
+    obs.replicate_id,
+    obs.alpha,
+    obs.spotlight_pct,
+    obs.b,
+    obs.miss_level
+")
+
+m1 <- lm(
+  degree_spotlight_lift ~ 
+    miss_level * b +
+    alpha +
+    spotlight_pct +
+    gt_centralisation +
+    gt_density,
+  data = model_df
+)
+
+m1
+summary(m1)
+
+m2 <- lm(
+  degree_spotlight_lift ~ 
+    miss_level * b +
+    alpha * spotlight_pct +
+    gt_centralisation * b +
+    gt_density * miss_level,
+  data = model_df
+)
+
+summary(m2)
+
+model_df$base_graph_id <- interaction(
+  model_df$dataset,
+  model_df$replicate_id,
+  drop = TRUE
+)
+
+m3 <- lme4::lmer(
+  degree_spotlight_lift ~ 
+    miss_level * b +
+    alpha * spotlight_pct +
+    gt_centralisation +
+    gt_density +
+    (1 | base_graph_id),
+  data = model_df
+)
+
+summary(m3)
+
+model_df$b_c <- model_df$b - 1
+model_df$miss_c <- model_df$miss_level - mean(model_df$miss_level)
+model_df$alpha_c <- model_df$alpha - mean(model_df$alpha)
+model_df$spotlight_pct_c <- model_df$spotlight_pct - mean(model_df$spotlight_pct)
+
+m3c <- lme4::lmer(
+  degree_spotlight_lift ~ 
+    miss_c * b_c +
+    alpha * spotlight_pct +
+    gt_centralisation +
+    gt_density +
+    (1 | base_graph_id),
+  data = model_df
+)
+
+summary(m3c)
+plot(m3c)
+qqnorm(resid(m3c)); qqline(resid(m3c))
+
+model_df$.resid <- resid(m3c)
+
+model_df |>
+  dplyr::arrange(abs(.resid) |> desc()) |>
+  dplyr::select(
+    dataset, replicate_id, alpha, spotlight_pct, b, miss_level,
+    gt_centralisation, gt_density, degree_spotlight_lift, .resid
+  ) |>
+  head(20)
+
+library(brms)
+
+library(brms)
+
+model_df <- model_df |>
+  dplyr::mutate(
+    base_graph_id = interaction(dataset, replicate_id, drop = TRUE),
+    alpha_c = alpha - mean(alpha),
+    spotlight_pct_c = spotlight_pct - mean(spotlight_pct),
+    miss_c = miss_level - mean(miss_level),
+    b_c = b - 1
+  )
+
+model_df$b_f <- factor(model_df$b)
+
+model_df$b_f <- factor(model_df$b)
+
+m_absurd <- brm(
+  bf(
+    degree_spotlight_lift ~
+      miss_c * b_c * alpha_c * spotlight_pct_c *
+      gt_centralisation * gt_density +
+      
+      s(gt_centralisation, k = 3) +
+      s(gt_density, k = 3) +
+      s(miss_level, by = b_f, k = 3) +
+      
+      (1 | dataset) +
+      (1 + miss_c * b_c | base_graph_id),
+    
+    sigma ~ dataset + miss_level + spotlight_pct
+  ),
+  
+  data = model_df,
+  family = student(),
+  chains = 4,
+  cores = 3,
+  iter = 4000,
+  control = list(adapt_delta = 0.99, max_treedepth = 15)
+)

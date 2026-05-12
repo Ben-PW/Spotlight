@@ -81,6 +81,14 @@ datasets <- lapply(datasets, undirect)
 ##### Assign ID to networks #####
 
 datasets <- purrr::imap(datasets, function(graph_list, ds) {
+  tagGraphs(
+    graph_list = graph_list,
+    dataset = ds,
+    source = "true"
+  )
+})
+
+datasets <- purrr::imap(datasets, function(graph_list, ds) {
   tagGraphs_init(
     graph_list = graph_list,
     dataset = ds,
