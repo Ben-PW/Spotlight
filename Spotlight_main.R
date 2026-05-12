@@ -7,6 +7,8 @@
 
 ########################################### Begin ##############################################
 
+here::here()
+
 source('Data_process.R') # ERGMs fit to data
 source('Compute_NetStats.R') # Assorted helper functions
 source('Spotlight_function.R') # Spotlight relevant functions
@@ -15,8 +17,6 @@ source('Data_handlers.R') # Network ID system and associated handlers
 ################################### Database setup ###########################################
 
 # All file management is now done with respect to current wd
-
-here::here()
 
 # Check for local results folder and create if missing
 

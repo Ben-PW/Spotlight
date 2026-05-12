@@ -4,8 +4,8 @@
 
 #####################################################################################################
 
-source("Degree_sampler4.R")
-source("ERGM_simulator.R")
+source(here::here("Degree_sampler4.R"))
+source(here::here("ERGM_simulator.R"))
 
 here::here()
 
