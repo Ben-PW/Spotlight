@@ -4,252 +4,560 @@
 
 #####################################################################################################
 
-source(here::here("Degree_sampler4.R"))
-source(here::here("ERGM_simulator.R"))
-
-here::here()
-
-
-
+# requires
+source(here::here("Scripts", "Data_simulation_helpers.R"))
+source(here::here("Scripts", "Degree_sampler.R"))
+source(here::here("Scripts", "ERGM_simulator.R"))
 
 ############################## Generate degree sequences #############################
 
-######################## n20 ####
+################################## Low size #############################
 
-############## ad3 ####
+#################### Low avdeg ###################
 
-##### c01 ####
+########## Low c ###################
 
-n20ad3c015 <- degree_sequence_sample_mcmc(
-  nsim = 10,
-  size = 20,
-  average_degree = 3,
-  average_degree_tolerance = 0.3,
-  freeman_centralisation = 0.15,
-  tolerance = 0.05,
-  min_degree = 1,
-  burnin = 20000,
-  thin = 2000,
-  seed = 125,
-  unique_sequences = TRUE,
-  verbose = TRUE,
-  store_trace = TRUE
-)
-
-n30ad3c02 <- degree_sequence_sample_mcmc(
-  nsim = 100,
+n30_ad3_c01 <- sampleDegSeq(
+  nsim = 500, # this argument is now defunct due to sampler changes
   size = 30,
   average_degree = 3,
+  average_degree_tolerance = 0.3,
   freeman_centralisation = 0.1,
-  tolerance = 0.1,
+  tolerance = 0.05,
   min_degree = 1,
-  burnin = 20000,
-  thin = 2000,
-  seed = 125,
-  unique_sequences = TRUE,
-  verbose = TRUE,
-  store_trace = TRUE
+  seed = 123,
+  verbose = FALSE
 )
 
-##### c05 ####
+n30_ad3_c01_tab <- summariseDegSeq(n30_ad3_c01)
 
-n50ad3c05 <- degree_sequence_sample_mcmc(
-  nsim = 10,
-  size = 50,
+n30_ad3_c01_tab %>%
+  summarise(
+    n = n(),
+    min_ad = min(average_degree),
+    max_ad = max(average_degree),
+    mean_ad = mean(average_degree), # 3.03
+    min_c = min(centralisation),
+    mean_c = mean(centralisation), # 0.112
+    max_c = max(centralisation),
+    min_dmax = min(dmax),
+    max_dmax = max(dmax)
+  )
+
+selected_ids <- n30_ad3_c01_tab %>%
+  mutate(
+    ad_bin = cut(average_degree, breaks = 4),    
+    c_bin  = cut(centralisation, breaks = 4),    
+    iqr_bin = cut(degree_iqr, breaks = 4),       
+    dmax_bin = cut(dmax, breaks = 4)
+  ) %>%
+  group_by(ad_bin, c_bin, iqr_bin, dmax_bin) %>%
+  slice_sample(n = 2) %>% # sample 2 as there are fewer sequences in this cell
+  ungroup() %>%
+  pull(seq_id)
+
+n30_ad3_c01_degs <- n30_ad3_c01$degree_sequences[selected_ids]
+
+n30_ad3_c01_degs <- netFromDegSeq(n30_ad3_c01_degs)
+
+network_summary(n30_ad3_c01_degs) # av deg = 3.032
+# av cent = 0.102
+
+################################# Low size ###############################
+
+#################### High avdeg ##############
+
+########## Low C ################
+
+n30_ad6_c01 <- sampleDegSeq(
+  nsim = 50,
+  size = 30,
+  average_degree = 6,
+  average_degree_tolerance = 0.3,
+  freeman_centralisation = 0.1,
+  tolerance = 0.05,
+  min_degree = 1,
+  seed = 123,
+  verbose = FALSE
+)
+
+n30_ad6_c01_tab <- summariseDegSeq(n30_ad6_c01)
+
+n30_ad6_c01_tab %>%
+  summarise(
+    n = n(),
+    min_ad = min(average_degree),
+    max_ad = max(average_degree),
+    mean_ad = mean(average_degree), # 6.26
+    min_c = min(centralisation),
+    mean_c = mean(centralisation), # 0.126
+    max_c = max(centralisation),
+    min_dmax = min(dmax),
+    max_dmax = max(dmax)
+  )
+
+selected_ids <- n30_ad6_c01_tab %>%
+  mutate(
+    ad_bin = cut(average_degree, breaks = 4),   
+    c_bin  = cut(centralisation, breaks = 4),    
+    iqr_bin = cut(degree_iqr, breaks = 4),       
+    dmax_bin = cut(dmax, breaks = 4)
+  ) %>%
+  group_by(ad_bin, c_bin, iqr_bin, dmax_bin) %>%
+  slice_sample(n = 2) %>%
+  ungroup() %>%
+  pull(seq_id)
+
+n30_ad6_c01_degs <- n30_ad6_c01$degree_sequences[selected_ids]
+
+n30_ad6_c01_degs <- netFromDegSeq(n30_ad6_c01_degs)
+
+network_summary(n30_ad6_c01_degs) # avdeg = 6.019
+# avcent = 0.115
+
+################################# Low size ################################
+
+#################### Low avdeg ######################
+
+########## High C #######################
+
+n30_ad3_c05 <- sampleDegSeq(
+  nsim = 50,
+  size = 30,
   average_degree = 3,
+  average_degree_tolerance = 0.3,
   freeman_centralisation = 0.5,
   tolerance = 0.05,
   min_degree = 1,
-  burnin = 20000,
-  thin = 2000,
-  seed = 125,
-  unique_sequences = FALSE,
-  verbose = TRUE,
-  store_trace = TRUE
+  seed = 123
 )
 
-############## ad6 ####
+n30_ad3_c05_tab <- summariseDegSeq(n30_ad3_c05)
 
-##### c01 ####
+n30_ad3_c05_tab %>%
+  summarise(
+    n = n(),
+    min_ad = min(average_degree),
+    max_ad = max(average_degree),
+    mean_ad = mean(average_degree), # 3.03
+    min_c = min(centralisation),
+    mean_c = mean(centralisation), # 0.5
+    max_c = max(centralisation),
+    min_dmax = min(dmax),
+    max_dmax = max(dmax)
+  )
 
-n50ad6c01 <- degree_sequence_sample_mcmc(
-  nsim = 10,
-  size = 50,
+selected_ids <- n30_ad3_c05_tab %>%
+  mutate(
+    ad_bin = cut(average_degree, breaks = 4), 
+    c_bin  = cut(centralisation, breaks = 4),   
+    iqr_bin = cut(degree_iqr, breaks = 4),  
+    dmax_bin = cut(dmax, breaks = 4)
+  ) %>%
+  group_by(ad_bin, 
+           c_bin, 
+           iqr_bin, 
+           dmax_bin
+  ) %>%
+  slice_sample(n = 1) %>%
+  ungroup() %>%
+  pull(seq_id)
+
+n30_ad3_c05_degs <- n30_ad3_c05$degree_sequences[selected_ids]
+
+n30_ad3_c05_degs <- netFromDegSeq(n30_ad3_c05_degs)
+
+network_summary(n30_ad3_c05_degs) # av deg = 3.018
+# av cent = 0.468
+
+################################# Low size #########
+#################### High avdeg ############
+########## High C #########
+
+n30_ad6_c05 <- sampleDegSeq(
+  nsim = 50,
+  size = 30,
   average_degree = 6,
-  freeman_centralisation = 0.1,
-  tolerance = 0.05,
-  min_degree = 1,
-  burnin = 20000,
-  thin = 2000,
-  seed = 125,
-  unique_sequences = FALSE,
-  verbose = TRUE,
-  store_trace = TRUE
-)
-
-##### c05 ####
-
-n50ad6c05 <- degree_sequence_sample_mcmc(
-  nsim = 10,
-  size = 50,
-  average_degree = 6,
+  average_degree_tolerance = 0.3,
   freeman_centralisation = 0.5,
   tolerance = 0.05,
   min_degree = 1,
-  burnin = 20000,
-  thin = 2000,
-  seed = 125,
-  unique_sequences = FALSE,
-  verbose = TRUE,
-  store_trace = TRUE
+  seed = 123
 )
 
-######################## n100 ####
+n30_ad6_c05_tab <- summariseDegSeq(n30_ad6_c05)
 
-############## ad3 ####
+n30_ad6_c05_tab %>%
+  summarise(
+    n = n(),
+    min_ad = min(average_degree),
+    max_ad = max(average_degree),
+    mean_ad = mean(average_degree), # 3.03
+    min_c = min(centralisation),
+    mean_c = mean(centralisation), # 0.5
+    max_c = max(centralisation),
+    min_dmax = min(dmax),
+    max_dmax = max(dmax)
+  )
 
-##### c01 ####
+selected_ids <- n30_ad6_c05_tab %>%
+  mutate(
+    ad_bin = cut(average_degree, breaks = 4), 
+    c_bin  = cut(centralisation, breaks = 4),   
+    iqr_bin = cut(degree_iqr, breaks = 4),  
+    dmax_bin = cut(dmax, breaks = 4)
+  ) %>%
+  group_by(ad_bin, 
+           c_bin, 
+           iqr_bin, 
+           dmax_bin
+  ) %>%
+  slice_sample(n = 1) %>%
+  ungroup() %>%
+  pull(seq_id)
 
-n100ad3c01 <- degree_sequence_sample_mcmc(
-  nsim = 10,
-  size = 100,
+n30_ad6_c05_degs <- n30_ad6_c05$degree_sequences[selected_ids]
+
+n30_ad6_c05_degs <- netFromDegSeq(n30_ad6_c05_degs)
+
+network_summary(n30_ad6_c05_degs)
+
+################################# Mid size #####################
+#################### Low avdeg #########
+########## Low C #########
+
+n60_ad3_c01 <- sampleDegSeq(
+  nsim = 1000,
+  size = 60,
   average_degree = 3,
+  average_degree_tolerance = 0.59,
   freeman_centralisation = 0.1,
   tolerance = 0.05,
   min_degree = 1,
-  burnin = 20000,
-  thin = 2000,
-  seed = 125,
-  unique_sequences = FALSE,
-  verbose = TRUE,
-  store_trace = TRUE
+  seed = 123
 )
 
-##### c05 ####
+n60_ad3_c01_tab <- summariseDegSeq(n60_ad3_c01)
 
-n100ad3c05 <- degree_sequence_sample_mcmc(
-  nsim = 10,
-  size = 100,
+selected_ids <- n60_ad3_c01_tab %>%
+  mutate(
+    ad_bin = cut(average_degree, breaks = 4),    
+    c_bin  = cut(centralisation, breaks = 4),   
+    iqr_bin = cut(degree_iqr, breaks = 4),      
+    dmax_bin = cut(dmax, breaks = 4)
+  ) %>%
+  group_by(ad_bin, c_bin, iqr_bin, dmax_bin) %>%
+  slice_sample(n = 1) %>%
+  ungroup() %>%
+  pull(seq_id)
+
+n60_ad3_c01_degs <- n60_ad3_c01$degree_sequences[selected_ids]
+
+n60_ad3_c01_degs <- netFromDegSeq(n60_ad3_c01_degs)
+
+network_summary(n60_ad3_c01_degs) # av deg = 2.971
+# av cent = 0.103
+
+################################# Mid size ################
+#################### High avdeg ##########
+########## Low C ##########
+
+n60_ad6_c01 <- sampleDegSeq(
+  nsim = 50,
+  size = 60,
+  average_degree = 6,
+  average_degree_tolerance = 0.59,
+  freeman_centralisation = 0.1,
+  tolerance = 0.05,
+  min_degree = 1,
+  seed = 123
+)
+
+n60_ad6_c01_tab <- summariseDegSeq(n60_ad6_c01)
+
+selected_ids <- n60_ad6_c01_tab %>%
+  mutate(
+    ad_bin = cut(average_degree, breaks = 4),   
+    c_bin  = cut(centralisation, breaks = 4), 
+    iqr_bin = cut(degree_iqr, breaks = 4),      
+    dmax_bin = cut(dmax, breaks = 4)
+  ) %>%
+  group_by(ad_bin, c_bin, iqr_bin, dmax_bin) %>%
+  slice_sample(n = 1) %>%
+  ungroup() %>%
+  pull(seq_id)
+
+n60_ad6_c01_degs <- n60_ad6_c01$degree_sequences[selected_ids]
+
+n60_ad6_c01_degs <- netFromDegSeq(n60_ad6_c01_degs)
+
+network_summary(n60_ad6_c01_degs) # av deg = 5.989
+# av cent = 0.120
+
+################################# Mid size ##########
+#################### Low avdeg ########### 
+########## High C #########
+
+n60_ad3_c05 <- sampleDegSeq(
+  nsim = 50,
+  size = 60,
   average_degree = 3,
+  average_degree_tolerance = 0.59,
   freeman_centralisation = 0.5,
   tolerance = 0.05,
   min_degree = 1,
-  burnin = 20000,
-  thin = 2000,
-  seed = 125,
-  unique_sequences = FALSE,
-  verbose = TRUE,
-  store_trace = TRUE
+  seed = 123
 )
 
-############## ad6 ####
+n60_ad3_c05_tab <- summariseDegSeq(n60_ad3_c05)
 
-##### c01 ####
+selected_ids <- n60_ad3_c05_tab %>%
+  mutate(
+    ad_bin = cut(average_degree, breaks = 4), 
+    c_bin  = cut(centralisation, breaks = 4),   
+    iqr_bin = cut(degree_iqr, breaks = 4),  
+    dmax_bin = cut(dmax, breaks = 4)
+  ) %>%
+  group_by(ad_bin, c_bin, iqr_bin, dmax_bin) %>%
+  slice_sample(n = 1) %>%
+  ungroup() %>%
+  pull(seq_id)
 
-n100ad6c01 <- degree_sequence_sample_mcmc(
-  nsim = 10,
-  size = 100,
+
+n60_ad3_c05_degs <- n60_ad3_c05$degree_sequences[selected_ids]
+
+n60_ad3_c05_degs <- netFromDegSeq(n60_ad3_c05_degs)
+
+network_summary(n60_ad3_c05_degs) # av deg = 3.118
+# av cent = 0.483
+
+################################# Mid size ############
+#################### High avdeg ############
+########## High C ############
+
+n60_ad6_c05 <- sampleDegSeq(
+  nsim = 50,
+  size = 60,
   average_degree = 6,
-  freeman_centralisation = 0.1,
-  tolerance = 0.05,
-  min_degree = 1,
-  burnin = 20000,
-  thin = 2000,
-  seed = 125,
-  unique_sequences = FALSE,
-  verbose = TRUE,
-  store_trace = TRUE
-)
-##### c05 ####
-
-n100ad6c05 <- degree_sequence_sample_mcmc(
-  nsim = 10,
-  size = 100,
-  average_degree = 6,
+  average_degree_tolerance = 0.59,
   freeman_centralisation = 0.5,
   tolerance = 0.05,
   min_degree = 1,
-  burnin = 20000,
-  thin = 2000,
-  seed = 125,
-  unique_sequences = FALSE,
-  verbose = TRUE,
-  store_trace = TRUE
+  seed = 123
 )
 
-######################## n150 ####
+n60_ad6_c05_tab <- summariseDegSeq(n60_ad6_c05)
 
-############## ad3 ####
+selected_ids <- n60_ad6_c05_tab %>%
+  mutate(
+    ad_bin = cut(average_degree, breaks = 4),    
+    c_bin  = cut(centralisation, breaks = 4),    
+    iqr_bin = cut(degree_iqr, breaks = 4),       
+    dmax_bin = cut(dmax, breaks = 4)
+  ) %>%
+  group_by(ad_bin, c_bin, iqr_bin, dmax_bin) %>%
+  slice_sample(n = 1) %>%
+  ungroup() %>%
+  pull(seq_id)
 
-##### c01 ####
+n60_ad6_c05_degs <- n60_ad6_c05$degree_sequences[selected_ids]
 
-n150ad3c01 <- degree_sequence_sample_mcmc(
-  nsim = 10,
-  size = 150,
+n60_ad6_c05_degs <- netFromDegSeq(n60_ad6_c05_degs)
+
+network_summary(n60_ad6_c05_degs) # av deg = 6.051
+# av cent = 0.483
+
+################################# High size ############
+#################### Low avdeg ##########
+########## Low C ############
+
+n120_ad3_c01 <- sampleDegSeq(
+  nsim = 500,
+  size = 120,
   average_degree = 3,
+  average_degree_tolerance = 1.19,
   freeman_centralisation = 0.1,
   tolerance = 0.05,
   min_degree = 1,
-  burnin = 20000,
-  thin = 2000,
-  seed = 125,
-  unique_sequences = FALSE,
-  verbose = TRUE,
-  store_trace = TRUE
+  seed = 123
 )
 
-##### c05 ####
+n120_ad3_c01_tab <- summariseDegSeq(n120_ad3_c01)
 
-n150ad3c05 <- degree_sequence_sample_mcmc(
-  nsim = 10,
-  size = 150,
+n120_ad3_c01_tab %>%
+  summarise(
+    n = n(),
+    min_ad = min(average_degree),
+    max_ad = max(average_degree),
+    mean_ad = mean(average_degree),
+    min_c = min(centralisation),
+    max_c = max(centralisation),
+    min_dmax = min(dmax),
+    max_dmax = max(dmax)
+  )
+
+selected_ids <- n120_ad3_c01_tab %>%
+  mutate(
+    ad_bin = cut(average_degree, breaks = 4),   
+    c_bin  = cut(centralisation, breaks = 4),    
+    iqr_bin = cut(degree_iqr, breaks = 4),       
+    dmax_bin = cut(dmax, breaks = 4)
+  ) %>%
+  group_by(ad_bin, c_bin, iqr_bin, dmax_bin) %>%
+  slice_sample(n = 1) %>%
+  ungroup() %>%
+  pull(seq_id)
+
+n120_ad3_c01_degs <- n120_ad3_c01$degree_sequences[selected_ids]
+
+n120_ad3_c01_degs <- netFromDegSeq(n120_ad3_c01_degs)
+
+network_summary(n120_ad3_c01_degs) # av deg = 3.317
+# av cent = 0.094
+
+################################# High size ###########
+#################### High avdeg ########## 
+########## Low C ###########
+
+n120_ad6_c01 <- sampleDegSeq(
+  nsim = 500,
+  size = 120,
+  average_degree = 6,
+  average_degree_tolerance = 1.19,
+  freeman_centralisation = 0.1,
+  tolerance = 0.05,
+  min_degree = 1,
+  seed = 123
+)
+
+n120_ad6_c01_tab <- summariseDegSeq(n120_ad6_c01)
+
+n120_ad6_c01_tab %>%
+  summarise(
+    n = n(),
+    min_ad = min(average_degree),
+    max_ad = max(average_degree),
+    mean_ad = mean(average_degree),
+    min_c = min(centralisation),
+    max_c = max(centralisation),
+    min_dmax = min(dmax),
+    max_dmax = max(dmax)
+  )
+
+selected_ids <- n120_ad6_c01_tab %>%
+  mutate(
+    ad_bin = cut(average_degree, breaks = 4), 
+    c_bin  = cut(centralisation, breaks = 4),    
+    iqr_bin = cut(degree_iqr, breaks = 4),       
+    dmax_bin = cut(dmax, breaks = 4)
+  ) %>%
+  group_by(ad_bin, c_bin, iqr_bin, dmax_bin) %>%
+  slice_sample(n = 1) %>%
+  ungroup() %>%
+  pull(seq_id)
+
+n120_ad6_c01_degs <- n120_ad6_c01$degree_sequences[selected_ids]
+
+n120_ad6_c01_degs <- netFromDegSeq(n120_ad6_c01_degs)
+
+network_summary(n120_ad6_c01_degs) # av deg = 5.84
+# av cent = 0.112
+
+################################# High size ############
+#################### Low avdeg #############
+########## High C ##########
+
+n120_ad3_c05 <- sampleDegSeq(
+  nsim = 500,
+  size = 120,
   average_degree = 3,
+  average_degree_tolerance = 1.19,
   freeman_centralisation = 0.5,
   tolerance = 0.05,
   min_degree = 1,
-  burnin = 20000,
-  thin = 2000,
-  seed = 125,
-  unique_sequences = FALSE,
-  verbose = TRUE,
-  store_trace = TRUE
+  seed = 123
 )
 
-############## ad6 ####
+n120_ad3_c05_tab <- summariseDegSeq(n120_ad3_c05)
 
-##### c01 ####
+n120_ad3_c05_tab %>%
+  summarise(
+    n = n(),
+    min_ad = min(average_degree),
+    max_ad = max(average_degree),
+    mean_ad = mean(average_degree),
+    min_c = min(centralisation),
+    max_c = max(centralisation),
+    min_dmax = min(dmax),
+    max_dmax = max(dmax)
+  )
 
-n150ad6c01 <- degree_sequence_sample_mcmc(
-  nsim = 10,
-  size = 150,
+selected_ids <- n120_ad3_c05_tab %>%
+  mutate(
+    ad_bin = cut(average_degree, breaks = 4), 
+    c_bin  = cut(centralisation, breaks = 4),    
+    iqr_bin = cut(degree_iqr, breaks = 4),       
+    dmax_bin = cut(dmax, breaks = 4)
+  ) %>%
+  group_by(ad_bin, c_bin, iqr_bin, dmax_bin) %>%
+  slice_sample(n = 1) %>%
+  ungroup() %>%
+  pull(seq_id)
+
+n120_ad3_c05_degs <- n120_ad3_c05$degree_sequences[selected_ids]
+
+n120_ad3_c05_degs <- netFromDegSeq(n120_ad3_c05_degs)
+
+network_summary(n120_ad3_c05_degs)
+
+################################# High size ########## 
+#################### High avdeg ########### 
+########## High C #######
+
+n120_ad6_c05 <- sampleDegSeq(
+  nsim = 500,
+  size = 120,
   average_degree = 6,
-  freeman_centralisation = 0.1,
-  tolerance = 0.05,
-  min_degree = 1,
-  burnin = 20000,
-  thin = 2000,
-  seed = 125,
-  unique_sequences = FALSE,
-  verbose = TRUE,
-  store_trace = TRUE
-)
-
-##### c05 ####
-
-n150ad6c05 <- degree_sequence_sample_mcmc(
-  nsim = 10,
-  size = 150,
-  average_degree = 6,
+  average_degree_tolerance = 1.19,
   freeman_centralisation = 0.5,
   tolerance = 0.05,
   min_degree = 1,
-  burnin = 20000,
-  thin = 2000,
-  seed = 125,
-  unique_sequences = FALSE,
-  verbose = TRUE,
-  store_trace = TRUE
+  seed = 123
 )
+
+n120_ad6_c05_tab <- summariseDegSeq(n120_ad6_c05)
+
+n120_ad6_c05_tab %>%
+  summarise(
+    n = n(),
+    min_ad = min(average_degree),
+    max_ad = max(average_degree),
+    mean_ad = mean(average_degree),
+    min_c = min(centralisation),
+    max_c = max(centralisation),
+    min_dmax = min(dmax),
+    max_dmax = max(dmax)
+  )
+
+selected_ids <- n120_ad6_c05_tab %>%
+  mutate(
+    ad_bin = cut(average_degree, breaks = 4), 
+    c_bin  = cut(centralisation, breaks = 4),   
+    iqr_bin = cut(degree_iqr, breaks = 4),      
+    dmax_bin = cut(dmax, breaks = 4)
+  ) %>%
+  group_by(ad_bin, c_bin, iqr_bin, dmax_bin) %>%
+  slice_sample(n = 1) %>%
+  ungroup() %>%
+  pull(seq_id)
+
+
+n120_ad6_c05_degs <- n120_ad6_c05$degree_sequences[selected_ids]
+
+n120_ad6_c05_degs <- netFromDegSeq(n120_ad6_c05_degs)
+
+network_summary(n120_ad6_c05_degs) # av deg = 6.155
+# av cent = 0.491
 
 
 
@@ -265,454 +573,207 @@ n150ad6c05 <- degree_sequence_sample_mcmc(
 # size: 6 : 1036
 # density: 0.0066 : 0.47
 
-#### Supervision feedback
-# Keep attributes out of primary design
-# Focus:
-# Density, centralisation
-# Density: High - Low
-# Centralisation: High - Low
-# Attribute: No effect - High effect
-# Core periph: dense, centralised
-# Cell struct: sparser, decentralised
-# Don't model archetypes directly, relate variable levels to whichever is
-# closest
-# Model whether attribute is related to spotlight or not later
-# Adding an option to save networks would be useful for replication
+################################################################################
 
-############################## IMPORTANT
-# gwdegree coefficient is interpreted REVERSE
-# https://environmentalpolicy.ucdavis.edu/blog/shiny-app-help-interpret-gw-degree-estimates-ergms
-# https://joss.theoj.org/papers/10.21105/joss.00036
-# https://www.sciencedirect.com/science/article/pii/S0378873306000396
-# It is interpreted as an anti-perferential attachment term apparently
+############################ ERGM Simulation Stage #########################
 
-# Set up environment for some simulation param experiments
+################################################################################
 
-####################### Trial network parameters
-# Here i need to trial parameters that are representative of real world networks
-# but also produce useable data for the simulation
+###### Test: n30_ad3_c01 #####
 
-sapply(net_list, function(g) {
-  igraph::centr_degree(
-    intergraph::asIgraph(g),
-    normalized = TRUE
-  )$centralization
-})
+# Good performance across all degree sequences
+tgt <- ceiling(100/length(n30_ad3_c01_degs))
 
-par(mfrow = c(4, 5), mar = c(0.2, 0.2, 1, 0.2))
+n30_ad3_c01_test <- simulateNetworks(n30_ad3_c01_degs,
+                                     nmAtt = 1,
+                                     gwdeg = 1,
+                                     gwesp = 0.4,
+                                     gwdsp = -0.025,
+                                     target_connected = tgt)
 
-n100ad3c01_list <- netFromDegSeq(n100ad3c01$degree_sequences)
+n30_ad3_c01_test$diagnostics
+par(mfrow = c(5,5))
+plotSimNetworks(n30_ad3_c01_test$networks)
 
-n100ad3c01sim <- simulateNetworks(n100ad3c01_list,
-                                  gwdeg = 1,
-                                  gwesp = 1,
-                                  gwdsp = 1,
-                                  nsim = 2)
+###### Test: n30_ad6_c01 #####
 
-network_summary(n100ad3c01sim)
-plotSimNetworks(n100ad3c01sim)
+# Good performance across all degree sequences
+tgt <- ceiling(100/length(n30_ad6_c01_degs))
 
-sapply(n100ad3c01sim, function(g) {
-  igraph::centr_degree(
-    intergraph::asIgraph(g),
-    normalized = TRUE
-  )$centralization
-})
+n30_ad6_c01_test <- simulateNetworks(n30_ad6_c01_degs,
+                                     nmAtt = 1,
+                                     gwdeg = 1,
+                                     gwesp = 0.4,
+                                     gwdsp = -0.025,
+                                     target_connected = tgt)
 
-n100ad3c05_list <- netFromDegSeq(n100ad3c05$degree_sequences)
+n30_ad6_c01_test$diagnostics
+par(mfrow = c(5,5))
+plotSimNetworks(n30_ad6_c01_test$networks)
 
-n100ad3c05sim <- simulateNetworks(n100ad3c05_list,
-                                  gwdeg = 1,
-                                  gwesp = 0.1,
-                                  gwdsp = 0.1,
-                                  nsim = 2)
+###### Test: n30_ad3_c05 #####
 
-network_summary(n100ad3c05sim)
-plotSimNetworks(n100ad3c05sim)
+# Good performance across all degree sequences
+tgt <- ceiling(100/length(n30_ad3_c05_degs))
 
-n100ad3c05sim2 <- simulateNetworks(n100ad3c05_list,
-                                   nmAtt = 1,
-                                   gwdeg = 1,
-                                   gwesp = 0.4,
-                                   gwdsp = 0.4,
-                                   nsim = 2)
+n30_ad3_c05_test <- simulateNetworks(n30_ad3_c05_degs,
+                                     nmAtt = 1,
+                                     gwdeg = 1,
+                                     gwesp = 0.4,
+                                     gwdsp = -0.025,
+                                     target_connected = tgt)
+
+n30_ad3_c05_test$diagnostics
+par(mfrow = c(5,5))
+plotSimNetworks(n30_ad3_c05_test$networks)
+
+###### Test: n30_ad6_c05 #####
+
+# Good performance across all degree sequences
+tgt <- ceiling(100/length(n30_ad6_c05_degs))
 
-network_summary(n100ad3c05sim)
-plotSimNetworks(n100ad3c05sim)
-
-sapply(n100ad3c05sim, function(g) {
-  igraph::centr_degree(
-    intergraph::asIgraph(g),
-    normalized = TRUE
-  )$centralization
-})
-
-plotSimNetworks(iFlo)
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-simulateNetwork <- function(size,
-                            avdeg,
-                            prob = c(3,1),
-                            nfAtt = 0,
-                            nmAtt = 0,
-                            gwdeg = 1,
-                            gwesp = 1,
-                            gwdsp = -0.025,
-                            nsim = 20){
-  
-  net <- network::network.initialize(size, directed = FALSE)
-  
-  network::set.vertex.attribute(
-    net,
-    attrname = "att",
-    value = sample(c("A", "B"), size, replace = TRUE, prob = prob)
-  )
-  
-  net <- setDensity(net, av_deg = avdeg)
-  
-  form <- net ~
-    nodefactor("att") +
-    nodematch("att") +
-    gwdegree(0.3, fixed = TRUE) +
-    gwesp(0.3, fixed = TRUE) +
-    gwdsp(0.3, fixed = TRUE)
-  
-  coefs <- c(
-    nodefactor.att.B = nfAtt,
-    nodematch.att = nmAtt,
-    gwdeg.fixed = gwdeg,
-    gwesp.fixed = gwesp,
-    gwdsp.fixed = gwdsp
-  )
-  
-  sim <- stats::simulate(
-    form,
-    constraints = ~edges,
-    coef = coefs,
-    nsim = nsim,
-    output = "network"
-  )
-  
-  sim
-  
-}
-
-############################### LESSONS FROM TEST 1
-# Don't include nodefactor, it results in networks which are far too centralised and
-# induces a huge number of isolates. It likely interacts significantly with negative
-# gwdeg parameter values, which just gets messy.
-# For next tests, likely switch to nodematch, just as a structural control
-
-test1 <- simulateNetwork(size = 500,
-                        avdeg = 3,
-                        prob = c(2,1),
-                        nfAtt = 0,
-                        gwdeg = 1,
-                        nsim = 20)
-
-test2 <- simulateNetwork(size = 500,
-                         avdeg = 3,
-                         prob = c(2,1),
-                         nfAtt = 0,
-                         gwdeg = -1,
-                         nsim = 20)
-
-test3 <- simulateNetwork(size = 500,
-                         avdeg = 3,
-                         prob = c(2,1),
-                         nfAtt = 1,
-                         gwdeg = -1,
-                         nsim = 20)
-
-test4 <- simulateNetwork(size = 500,
-                         avdeg = 3,
-                         prob = c(2,1),
-                         nfAtt = 1,
-                         gwdeg = 1,
-                         nsim = 20)
-
-test5 <- simulateNetwork(size = 100,
-                         avdeg = 3,
-                         prob = c(2,1),
-                         nfAtt = 0,
-                         gwdeg = 1,
-                         nsim = 20)
-
-test6 <- simulateNetwork(size = 100,
-                         avdeg = 3,
-                         prob = c(2,1),
-                         nfAtt = 0,
-                         gwdeg = -1,
-                         nsim = 20)
-
-test7 <- simulateNetwork(size = 100,
-                         avdeg = 3,
-                         prob = c(2,1),
-                         nfAtt = 1,
-                         gwdeg = -1,
-                         nsim = 20)
-
-test8 <- simulateNetwork(size = 100,
-                         avdeg = 3,
-                         prob = c(2,1),
-                         nfAtt = 1,
-                         gwdeg = 1,
-                         nsim = 20)
-
-testgwdeg0 <- simulateNetwork(size = 100,
-                              avdeg = 4,
-                              prob = c(1,1),
-                              nfAtt = 0,
-                              nmAtt = 1,
-                              gwdeg = 1,
-                              nsim = 20)
-
-par(mfrow = c(4, 5), mar = c(0.2, 0.2, 1, 0.2))
-
-
-network::set.vertex.attribute(
-    net,
-    attrname = "att",
-    value = sample(c("A", "B"), size, replace = TRUE, prob = prob)
-  )
-  
-  net <- setDensity(net, av_deg = avdeg)
-  
-  form <- net ~
-    nodefactor("att") +
-    nodematch("att") +
-    gwdegree(0.3, fixed = TRUE) +
-    gwesp(0.3, fixed = TRUE) +
-    gwdsp(0.3, fixed = TRUE)
-  
-  coefs <- c(
-    nodefactor.att.B = nfAtt,
-    nodematch.att = nmAtt,
-    gwdeg.fixed = gwdeg,
-    gwesp.fixed = gwesp,
-    gwdsp.fixed = gwdsp
-  )
-  
-  sim <- stats::simulate(
-    form,
-    constraints = ~edges,
-    coef = coefs,
-    nsim = nsim,
-    output = "network"
-  )
-  
-  sim
-  
-for (i in 1:20) {
-  plot(test2[[i]], main = paste0("test_2 ", i))
-}
-for (i in 1:20) {
-  plot(test3[[i]], main = paste0("test_3 ", i))
-}
-for (i in 1:20) {
-  plot(test4[[i]], main = paste0("test_4 ", i))
-}
-for (i in 1:20) {
-  plot(test5[[i]], main = paste0("test_5 ", i))
-}
-for (i in 1:20) {
-  plot(test6[[i]], main = paste0("test_6 ", i))
-}
-for (i in 1:20) {
-  plot(test7[[i]], main = paste0("test_7 ", i))
-}
-for (i in 1:20) {
-  plot(test8[[i]], main = paste0("test_8 ", i))
-}
-for (i in 1:20) {
-  plot(testgwdeg0[[i]], main = paste0("test_nm1 ", i))
-}
-summary(test1 ~ edges)
-
-network_summary(test1)
-network_summary(test2)
-network_summary(test3)
-network_summary(test4)
-network_summary(test5)
-network_summary(test6)
-network_summary(test7)
-network_summary(test8)
-network_summary(testgwdeg0)
-
-################################# LESSONS FROM TEST2
-# These parameters are producing very decentralised networks
-# gwesp may be producing eqalitarian structures?
-# likely need to use nodefactor to encourage hubs
-
-par(mfrow = c(4, 5), mar = c(0.2, 0.2, 1, 0.2))
-
-simulateNetwork <- function(size,
-                            avdeg,
-                            prob = c(3,1),
-                            nfAtt = 0,
-                            nmAtt = 0,
-                            gwdeg = 1,
-                            #gwesp = 1,
-                            #gwdsp = -0.025,
-                            nsim = 20){
-  
-  net <- network::network.initialize(size, directed = FALSE)
-  
-  network::set.vertex.attribute(
-    net,
-    attrname = "att",
-    value = sample(c("A", "B"), size, replace = TRUE, prob = prob)
-  )
-  
-  net <- setDensity(net, av_deg = avdeg)
-  
-  form <- net ~
-    nodefactor("att") +
-    nodematch("att") +
-    gwdegree(0.3, fixed = TRUE) #+
-    #gwesp(0.3, fixed = TRUE) #+
-    #gwdsp(0.3, fixed = TRUE)
-  
-  coefs <- c(
-    nodefactor.att.B = nfAtt,
-    nodematch.att = nmAtt,
-    gwdeg.fixed = gwdeg#,
-    #gwesp.fixed = gwesp,
-    #gwdsp.fixed = gwdsp
-  )
-  
-  sim <- stats::simulate(
-    form,
-    constraints = ~edges,
-    coef = coefs,
-    nsim = nsim,
-    output = "network"
-  )
-  
-  sim
-  
-}
-
-test2 <- simulateNetwork(size = 100,
-                         avdeg = 3,
-                         nfAtt = 1,
-                         gwdeg = -0.5,
-                         nsim = 20)
-
-for (i in 1:20) {
-  plot(test2[[i]], main = paste0("test_2 ", i))
-}
-
-########################## PLACEHOLDER NETWORKS TO TEST PIPELINE #######################
-########################################## Florentine Families ######################################
-# 16x16 undirected, low density, isolates
-
-data("flo", package = "network")
-
-flo <- network::network(flo, directed = F)
-
-network::set.vertex.attribute(flo,
-                              "wealth",
-                              c(10,36,27,146,55,44,20,8,42,103,48,49,10,48,32,3))
-#flo %v% "wealth" <- c(10,36,27,146,55,44,20,8,42,103,48,49,10,48,32,3)
-
-flo1 <- ergm::ergm(flo ~ edges + absdiff("wealth"))
-#rm(flo)
-
-####################################### Books network ##################################
-
-# For some reason I can't access these datasets any more
-# data(books)
-
-###############################  ############################
-# 4 x 24 x 24 weighted adjacency matrices
-
-data("covert_17", package = "networkdata")
-
-ac1 <- intergraph::asNetwork(covert_17)
-ac2 <- intergraph::asNetwork(covert_17) # just using the same data for now
-
-
-# plot(ac1)
-# plot(ac2)
-
-acct1 <- ergm::ergm(ac1 ~ edges) 
-summary(acct1)
-
-acct2 <- ergm::ergm(ac2 ~ edges)
-summary(acct2)
-
-#rm(ac1, ac2)
-
+n30_ad6_c05_test <- simulateNetworks(n30_ad6_c05_degs,
+                                     nmAtt = 1,
+                                     gwdeg = 1,
+                                     gwesp = 0.4,
+                                     gwdsp = -0.025,
+                                     target_connected = tgt)
+
+n30_ad6_c05_test$diagnostics
+par(mfrow = c(5,5))
+plotSimNetworks(n30_ad6_c05_test$networks)
+
+###### Test: n60_ad3_c01 #####
+
+# Poorer performance, increase attempts
+tgt <- ceiling(100/length(n60_ad3_c01_degs))
+
+n60_ad3_c01_test <- simulateNetworks(n60_ad3_c01_degs,
+                                     nmAtt = 1,
+                                     gwdeg = 1,
+                                     gwesp = 0.4,
+                                     gwdsp = -0.025,
+                                     target_connected = tgt,
+                                     max_attempts = 300)
+
+n60_ad3_c01_test$diagnostics
+par(mfrow = c(5,5))
+plotSimNetworks(n60_ad3_c01_test$networks)
+
+###### Test: n60_ad3_c05 #####
+
+tgt <- ceiling(100/length(n60_ad3_c05_degs))
+
+n60_ad3_c05_test <- simulateNetworks(n60_ad3_c05_degs,
+                                     nmAtt = 1,
+                                     gwdeg = 1,
+                                     gwesp = 0.4,
+                                     gwdsp = -0.025,
+                                     target_connected = tgt,
+                                     max_attempts = 300)
+
+n60_ad3_c05_test$diagnostics
+par(mfrow = c(5,5))
+plotSimNetworks(n60_ad3_c05_test$networks)
+
+###### Test: n60_ad6_c01 #####
+
+# Good performance
+tgt <- ceiling(100/length(n60_ad6_c01_degs))
+
+n60_ad6_c01_test <- simulateNetworks(n60_ad6_c01_degs,
+                                     nmAtt = 1,
+                                     gwdeg = 1,
+                                     gwesp = 0.4,
+                                     gwdsp = -0.025,
+                                     target_connected = tgt,
+                                     max_attempts = 100)
+
+n60_ad6_c01_test$diagnostics
+par(mfrow = c(5,5))
+plotSimNetworks(n60_ad6_c01_test$networks)
+
+###### Test: n60_ad6_c05 #####
+
+# Good performance
+tgt <- ceiling(100/length(n60_ad6_c05_degs))
+
+n60_ad6_c05_test <- simulateNetworks(n60_ad6_c05_degs,
+                                     nmAtt = 1,
+                                     gwdeg = 1,
+                                     gwesp = 0.4,
+                                     gwdsp = -0.025,
+                                     target_connected = tgt,
+                                     max_attempts = 100)
+
+n60_ad6_c05_test$diagnostics
+par(mfrow = c(5,5))
+plotSimNetworks(n60_ad6_c05_test$networks)
+
+###### Test: n120_ad3_c01 #####
+
+# This one is problematic
+# Increase number of attempts
+tgt <- ceiling(100/length(n120_ad3_c01_degs))
+
+n120_ad3_c01_test <- simulateNetworks(n120_ad3_c01_degs,
+                                      nmAtt = 1,
+                                      gwdeg = 1,
+                                      gwesp = 0.4,
+                                      gwdsp = -0.025,
+                                      target_connected = tgt,
+                                      max_attempts = 500)
+
+n120_ad3_c01_test$diagnostics
+sum(n120_ad3_c01_test$diagnostics$accepted)
+par(mfrow = c(5,5))
+plotSimNetworks(n120_ad3_c01_test$networks)
+
+###### Test: n120_ad3_c05 #####
+
+tgt <- ceiling(100/length(n120_ad3_c05_degs))
+
+n120_ad3_c05_test <- simulateNetworks(n120_ad3_c05_degs,
+                                      nmAtt = 1,
+                                      gwdeg = 1,
+                                      gwesp = 0.4,
+                                      gwdsp = -0.025,
+                                      target_connected = tgt,
+                                      max_attempts = 500)
+
+n120_ad3_c05_test$diagnostics
+sum(n120_ad3_c05_test$diagnostics$accepted)
+par(mfrow = c(5,5))
+plotSimNetworks(n120_ad3_c05_test$networks)
+
+###### Test: n120_ad6_c01 #####
+
+# Good performance
+tgt <- ceiling(100/length(n120_ad6_c01_degs))
+
+n120_ad6_c01_test <- simulateNetworks(n120_ad6_c01_degs,
+                                      nmAtt = 1,
+                                      gwdeg = 1,
+                                      gwesp = 0.4,
+                                      gwdsp = -0.025,
+                                      target_connected = tgt)
+
+n120_ad6_c01_test$diagnostics
+par(mfrow = c(4,4))
+plotSimNetworks(n120_ad6_c01_test$networks)
+
+###### Test: n120_ad6_c05 #####
+
+tgt <- ceiling(100/length(n120_ad6_c05_degs))
+
+n120_ad6_c05_test <- simulateNetworks(n120_ad6_c05_degs,
+                                      nmAtt = 1,
+                                      gwdeg = 1,
+                                      gwesp = 0.4,
+                                      gwdsp = -0.025,
+                                      target_connected = tgt)
+
+n120_ad6_c05_test$diagnostics
+par(mfrow = c(4,4))
+plotSimNetworks(n120_ad6_c05_test$networks)
 

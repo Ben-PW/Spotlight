@@ -51,6 +51,20 @@ on.exit(DBI::dbDisconnect(con, shutdown = TRUE), add = TRUE)
 
 ################################## Generate networks ######################################
 
+source(here::here("Scripts", "Data_simulation.R"))
+
+################################################################################
+# Data_simulation.R
+#
+# Purpose:
+#   Generates baseline networks for the spotlight simulation.
+#
+# - Sources degree-sequence and network simulation helper functions
+# - Creates degree-sequence objects
+# - Creates baseline simulated network objects
+# - Leaves final network lists in the environment for Spotlight_main.R
+################################################################################
+
 # Toy networks for now
 
 ### THIS SHOULD BE ergm::simulate_formula()
