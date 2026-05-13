@@ -1,36 +1,26 @@
-# Function to check basic descriptives of simulated network lists
+
+####### Function to check basic descriptives of simulated network lists ########
 
 summariseNetworks <- function(net_list) {
   
   data.frame(
-    #target_density = 0.0066,
     mean_density = mean(sapply(net_list, network::network.density)),
-    
-    #target_triangles = 7817,
     mean_triangles = mean(sapply(net_list, function(g)
       sna::triad.census(g, mode = "graph")[4])),
-    
-    #target_degree = 6.79,
     mean_degree = mean(sapply(net_list, function(g)
       mean(sna::degree(g, gmode = "graph")))),
-    
-    #target_max = 316,
     mean_max_degree = mean(sapply(net_list, function(g)
       max(sna::degree(g, gmode = "graph")))),
-    
-    #target_comp = 1,
     mean_components = mean(sapply(net_list, function(g)
       length(sna::component.dist(g)$csize))),
-    
     mean_component_coverage = mean(sapply(net_list, function(g)
-      (max(sna::component.dist(g)$csize)/network.size(g))*100)),
-    
+      (max(sna::component.dist(g)$csize)/network::network.size(g))*100)),
     mean_centralisation = mean(sapply(net_list, function(g)
       igraph::centr_degree(intergraph::asIgraph(g), normalized = TRUE)$centralization)
     ))
 }
 
-# Function to turn generated degree sequences into network objects
+####### Function to turn generated degree sequences into network objects ########
 
 netFromDegSeq <- function(degree_sequences) {
   
@@ -47,7 +37,7 @@ netFromDegSeq <- function(degree_sequences) {
   return(net_list)
 }
 
-# Function to simply plot a list of simulated networks
+################ Function to simply plot a list of simulated networks #################
 
 plotSimNetworks <- function(net_list) {
   
@@ -64,4 +54,26 @@ plotSimNetworks <- function(net_list) {
       main = paste0(obj_name, " ", i)
     )
   }
+}
+
+################### Small helper for network naming conventions ##################
+
+format_c <- function(x) {
+  paste0("c", stringr::str_remove(formatC(x * 10, format = "f", digits = 0), "\\."))
+}
+
+################ Function to calculate avdeg tolerance via density ###############
+
+calc_ad_tol <- function(size, density_tol = 0.01) {
+  round(density_tol * (size - 1), 2)
+}
+
+##################### Function to name bases from parameters #####################
+
+make_basis_name <- function(size, average_degree, freeman_centralisation) {
+  paste0(
+    "n", size,
+    "_ad", average_degree,
+    "_", format_c(freeman_centralisation)
+  )
 }

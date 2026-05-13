@@ -468,6 +468,82 @@ summariseDegSeq <- function(out) {
   )
 }
 
+############ Wrapper for sampling and testing stages 
+
+makeNetworkBasis <- function(nsim,
+                           size,
+                           average_degree,
+                           average_degree_tolerance,
+                           freeman_centralisation,
+                           tolerance,
+                           min_degree = 1,
+                           seed = NULL,
+                           verbose = FALSE,
+                           cut_breaks = 4,
+                           slice_n = 1) {
+  
+  # Generate degree sequences
+  degseq_out <- sampleDegSeq(
+    nsim = nsim,
+    size = size,
+    average_degree = average_degree,
+    average_degree_tolerance = average_degree_tolerance,
+    freeman_centralisation = freeman_centralisation,
+    tolerance = tolerance,
+    min_degree = min_degree,
+    seed = seed,
+    verbose = verbose
+  )
+  
+  # Summarise sampled degree sequences
+  degseq_tab <- summariseDegSeq(degseq_out)
+  
+
+  degseq_summary <- degseq_tab |>
+    dplyr::summarise(
+      n = dplyr::n(),
+      min_ad = min(average_degree),
+      max_ad = max(average_degree),
+      mean_ad = mean(average_degree),
+      min_c = min(centralisation),
+      mean_c = mean(centralisation),
+      max_c = max(centralisation),
+      min_dmax = min(dmax),
+      max_dmax = max(dmax)
+    )
+  
+  # Select varying degree sequences by binned stats
+  selected_ids <- degseq_tab |>
+    dplyr::mutate(
+      ad_bin = cut(average_degree, breaks = cut_breaks),
+      c_bin = cut(centralisation, breaks = cut_breaks),
+      iqr_bin = cut(degree_iqr, breaks = cut_breaks),
+      dmax_bin = cut(dmax, breaks = cut_breaks)
+    ) |>
+    dplyr::group_by(ad_bin, c_bin, iqr_bin, dmax_bin) |>
+    dplyr::slice_sample(n = slice_n) |>
+    dplyr::ungroup() |>
+    dplyr::pull(seq_id)
+  
+  
+  selected_degseqs <- degseq_out$degree_sequences[selected_ids]
+  
+  # Convert to networks
+  selected_networks <- netFromDegSeq(selected_degseqs)
+  
+  # Final list-level summary
+  net_summary <- summariseNetworks(selected_networks)
+  
+  list(
+    sampler_output = degseq_out,
+    sampler_table = degseq_tab,
+    sampler_summary = degseq_summary,
+    selected_ids = selected_ids,
+    selected_degree_sequences = selected_degseqs,
+    networks = selected_networks,
+    network_summary = net_summary
+  )
+}
 
 
 

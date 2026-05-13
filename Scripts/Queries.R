@@ -13,7 +13,7 @@ dbListTables(con)
 
 # Query to check the spotlight simulation is properly biased towards degree
 
-DBI::dbGetQuery(con, "
+test <- DBI::dbGetQuery(con, "
   WITH spotlight_assignments AS (
     SELECT DISTINCT
       dataset,

@@ -65,26 +65,11 @@ source(here::here("Scripts", "Data_simulation.R"))
 # - Leaves final network lists in the environment for Spotlight_main.R
 ################################################################################
 
-# Toy networks for now
-
-### THIS SHOULD BE ergm::simulate_formula()
-iFlo <- stats::simulate(flo1, nsim = 100) # 100 networks per condition
-iAc1 <- stats::simulate(acct1, nsim = 100)
-iAc2 <- stats::simulate(acct2, nsim = 100)
-
-rm(flo1, acct1, acct2)
-
-##### Define datasets #####
-
-datasets <- list(
- Flo = iFlo,
-#  Ac1 = iAc1,
- Ac2 = iAc2
-)
+source(here::here("Scripts", "Error_simulation_helpers.R"))
 
 ##### Convert all to igraph objects #####
 
-datasets <- lapply(datasets, function(netlist) {
+datasets <- lapply(test_batch_1, function(netlist) {
   lapply(netlist, intergraph::asIgraph)
 })
 
@@ -96,14 +81,6 @@ datasets <- lapply(datasets, undirect)
 
 datasets <- purrr::imap(datasets, function(graph_list, ds) {
   tagGraphs(
-    graph_list = graph_list,
-    dataset = ds,
-    source = "true"
-  )
-})
-
-datasets <- purrr::imap(datasets, function(graph_list, ds) {
-  tagGraphs_init(
     graph_list = graph_list,
     dataset = ds,
     source = "true"
@@ -134,6 +111,8 @@ DBI::dbWriteTable(con, "node_results_gt", nodeGT, overwrite = TRUE)
 
 
 #################################### Begin sim ##################################
+
+source(here::here("Scripts", "Spotlight_helpers.R"))
 
 #### Spotlight params ####
 
