@@ -92,6 +92,12 @@ datasets <- purrr::imap(
   }
 )
 
+plot(datasets$n60_ad3_c3$diagnostics)
+
+saveRDS(
+  datasets,
+  file = here::here("Data", "Run_14_05_26", "datasets")
+)
 
 #saveRDS(
 #  test_batch_1,
