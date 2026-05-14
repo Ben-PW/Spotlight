@@ -14,7 +14,8 @@ is_connected_network <- function(net) {
   length(comp$csize) == 1L
 }
 
-# Main simulation function
+################# Main simulation function ##################
+
 simulateNetworks <- function(net_list, 
                              target_connected = 1,
                              max_attempts = 100,
@@ -149,5 +150,22 @@ simulateNetworks <- function(net_list,
   list(
     networks = all_sims,
     diagnostics = dplyr::bind_rows(diagnostics)
+  )
+}
+
+############# Wrapper to apply simulateNetworks to basis list ##########
+
+simulateFromBasis <- function(basis, target_total = 200, verbose = FALSE) {
+  tgt <- ceiling(target_total / length(basis$selected_degree_sequences))
+  
+  simulateNetworks(
+    basis$networks,
+    nmAtt = 1,
+    gwdeg = 1,
+    gwesp = 0.4,
+    gwdsp = -0.025,
+    target_connected = tgt,
+    max_attempts = 500,
+    verbose = verbose
   )
 }

@@ -525,7 +525,6 @@ makeNetworkBasis <- function(nsim,
     dplyr::ungroup() |>
     dplyr::pull(seq_id)
   
-  
   selected_degseqs <- degseq_out$degree_sequences[selected_ids]
   
   # Convert to networks
