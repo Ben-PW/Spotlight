@@ -1,15 +1,65 @@
 library(DBI)
 library(duckdb)
 library(here)
+library(dplyr)
+library(dbplyr)
 
-con <- dbConnect(
-  duckdb(),
+con <- DBI::dbConnect(
+  duckdb::duckdb(),
   dbdir = here("Results", "spotlight_results.duckdb")
 )
 
 on.exit(DBI::dbDisconnect(con, shutdown = TRUE), add = TRUE)
 
 dbListTables(con)
+
+############# Query top of databases to give a visual on structure ##############
+
+node_results_gt <- DBI::dbGetQuery(con, "
+                                SELECT *
+                                FROM node_results_gt
+                                ORDER BY dataset, replicate_id, alpha, spotlight_pct, b, miss_level, NodeID
+                                LIMIT 50;
+                                ")
+
+node_results <- DBI::dbGetQuery(con, "
+                                SELECT *
+                                FROM node_results
+                                ORDER BY dataset, replicate_id, alpha, spotlight_pct, b, miss_level, NodeID
+                                LIMIT 50;
+                                ")
+
+network_results_gt <- DBI::dbGetQuery(con, "
+                                      SELECT *
+                                      FROM network_results_gt
+                                      LIMIT 50;
+                                      ")
+
+network_results <- DBI::dbGetQuery(con, "
+                                   SELECT *
+                                   FROM network_results
+                                   LIMIT 50;
+                                   ")
+
+######################## Query to get network level differences ######################
+
+# Because the tables for network level results are comparatively small, they can
+# just be queried straight from the database. For larger runs, this would not be 
+# feasible
+
+network_bias_df <- tbl(con, "network_results") %>%
+  inner_join(
+    tbl(con, "network_results_gt"),
+    by = c("dataset", "replicate_id"),
+    suffix = c("_obs", "_gt")
+  ) %>%
+  mutate(
+    density_ARB = (density_obs - density_gt)/density_gt,
+    dcent_ARB = (dcent_obs - dcent_gt)/dcent_gt,
+    clustering_ARB = (clustering_obs - clustering_gt)/clustering_gt,
+    APL_ARB = (APL_obs - APL_gt)/APL_gt
+  ) %>%
+  collect()
 
 # Query to check the spotlight simulation is properly biased towards degree
 
@@ -112,9 +162,9 @@ ORDER BY
     obs.miss_level;
                 ")
 
-################################## Node lift plots ##############################
+################################## Node bias plots ##############################
 
-lift_df <- DBI::dbGetQuery(con, "
+node_bias_df <- DBI::dbGetQuery(con, "
     SELECT
     obs.dataset,
     obs.alpha,
@@ -126,43 +176,48 @@ lift_df <- DBI::dbGetQuery(con, "
 
     AVG(CASE 
           WHEN obs.Spotlight = 1 
-          THEN obs.Degree - gt.Degree 
-        END) AS mean_degree_bias_spotlit,
-
+          THEN (obs.Degree - gt.Degree) / gt.Degree 
+        END) 
+        AS mean_degree_bias_spotlit,
+        
     AVG(CASE 
           WHEN obs.Spotlight = 0 
-          THEN obs.Degree - gt.Degree 
-        END) AS mean_degree_bias_nonspotlit,
+          THEN (obs.Degree - gt.Degree) / gt.Degree 
+        END) 
+        AS mean_degree_bias_nonspotlit,
 
     AVG(CASE 
           WHEN obs.Spotlight = 1 
-          THEN obs.Degree - gt.Degree 
+          THEN (obs.Degree - gt.Degree) / gt.Degree 
         END)
     -
     AVG(CASE 
           WHEN obs.Spotlight = 0 
-          THEN obs.Degree - gt.Degree 
-        END) AS degree_spotlight_lift,
+          THEN (obs.Degree - gt.Degree) / gt.Degree 
+        END) 
+        AS degree_spotlight_lift,
 
     AVG(CASE 
           WHEN obs.Spotlight = 1 
-          THEN obs.Betweenness - gt.Betweenness 
+          THEN (obs.Betweenness - gt.Betweenness) / NULLIF(gt.Betweenness, 0) 
         END)
     -
     AVG(CASE 
           WHEN obs.Spotlight = 0 
-          THEN obs.Betweenness - gt.Betweenness 
-        END) AS betweenness_spotlight_lift,
+          THEN (obs.Betweenness - gt.Betweenness) / NULLIF(gt.Betweenness, 0) 
+        END) 
+        AS betweenness_spotlight_lift,
 
     AVG(CASE 
           WHEN obs.Spotlight = 1 
-          THEN obs.Eigenvector - gt.Eigenvector 
+          THEN (obs.Eigenvector - gt.Eigenvector) / NULLIF(gt.Eigenvector, 0) 
         END)
     -
     AVG(CASE 
           WHEN obs.Spotlight = 0 
-          THEN obs.Eigenvector - gt.Eigenvector 
-        END) AS eigenvector_spotlight_lift
+          THEN (obs.Eigenvector - gt.Eigenvector) / NULLIF(gt.Eigenvector, 0) 
+        END) 
+        AS eigenvector_spotlight_lift
 
 FROM node_results AS obs
 JOIN node_results_GT AS gt

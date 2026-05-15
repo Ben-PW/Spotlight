@@ -44,6 +44,54 @@ ggplot(
   ) +
   theme_minimal()
 
+################################ Simple network bias plots #########################
+
+# Density (obvious due to being a variable)
+ggplot(network_bias_df, aes(x = miss_level_obs, y = density_ARB, colour = factor(b_obs))) +
+  stat_summary(fun = mean, geom = "line") +
+  stat_summary(fun.data = mean_cl_boot, geom = "ribbon", alpha = 0.15, aes(fill = factor(b_obs)), colour = NA) +
+  facet_wrap(~ alpha_obs)
+
+# Degree centralistion (this one is decent)
+ggplot(network_bias_df, aes(x = miss_level_obs, y = dcent_ARB, colour = factor(b_obs))) +
+  stat_summary(fun = mean, geom = "line") +
+  stat_summary(fun.data = mean_cl_boot, geom = "ribbon", alpha = 0.15, aes(fill = factor(b_obs)), colour = NA) +
+  facet_wrap(~ alpha_obs)
+
+# Clustering
+ggplot(network_bias_df, aes(x = miss_level_obs, y = clustering_ARB, colour = factor(b_obs))) +
+  stat_summary(fun = mean, geom = "line") +
+  stat_summary(fun.data = mean_cl_boot, geom = "ribbon", alpha = 0.15, aes(fill = factor(b_obs)), colour = NA) +
+  facet_wrap(~ alpha_obs)
+
+################################# Heat map attempt (traumatic) ##########################
+
+ggplot(network_bias_df,
+       aes(x = factor(spotlight_pct_obs), y = factor(b_obs), fill = mean_dcent_ARB)) +
+  geom_tile() +
+  facet_grid(miss_level_obs ~ alpha_obs) +
+  labs(
+    x = "Spotlight proportion",
+    y = "Non-spotlit tie deletion weight",
+    fill = "Mean relative bias"
+  )
+
+network_bias_df %>%
+  dplyr::mutate(
+    dcent_gt_bin = cut(dcent_gt, breaks = 2)
+  ) %>%
+  ggplot(aes(x = dcent_gt_bin, y = dcent_ARB)) +
+  geom_boxplot() +
+  facet_grid(miss_level_obs ~ b_obs) +
+  labs(
+    x = "Ground-truth degree centralisation",
+    y = "Degree centralisation relative bias"
+  )
+ggplot(network_bias_df, aes(x = dcent_gt, y = dcent_ARB)) +
+  geom_point(alpha = 0.2) +
+  #geom_smooth(se = TRUE) +
+  facet_grid(miss_level_obs ~ b_obs)
+
 ############################### Node lift plots ##################################
 
 library(ggplot2)

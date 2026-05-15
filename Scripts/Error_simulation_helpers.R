@@ -124,7 +124,8 @@ computeMetrics <- function(graph_list) {
       APL = {
         dist_mat <- igraph::distances(g, mode = "all")
         mean(dist_mat[is.finite(dist_mat)], na.rm = TRUE)
-      }
+      },
+      components = igraph::count_components(g)
     )
   })
 }

@@ -77,3 +77,41 @@ make_basis_name <- function(size, average_degree, freeman_centralisation) {
     "_", format_c(freeman_centralisation)
   )
 }
+
+################ Sample from simulated networks retaining max bases ###############
+# This function expects network objects, so if I change the simulation
+# function to output igraph objects, this will have to change
+
+sampleDatasets <- function(networks, target_n = 100) {
+  
+  basis_ids <- vapply(
+    networks,
+    function(g) network::get.network.attribute(g, "basis_id"),
+    numeric(1)
+  )
+  
+  n <- length(networks)
+  
+  if (n < target_n) {
+    warning("Only ", n, " networks available; keeping all.")
+    return(networks)
+  }
+  
+  one_per_basis <- split(seq_along(networks), basis_ids) |>
+    lapply(function(idx) sample(idx, size = 1)) |>
+    unlist(use.names = FALSE)
+  
+  if (length(one_per_basis) >= target_n) {
+    keep_ids <- sample(one_per_basis, size = target_n, replace = FALSE)
+    return(networks[keep_ids])
+  }
+  
+  remaining_pool <- setdiff(seq_along(networks), one_per_basis)
+  remaining_needed <- target_n - length(one_per_basis)
+  
+  extra_ids <- sample(remaining_pool, size = remaining_needed, replace = FALSE)
+  
+  keep_ids <- c(one_per_basis, extra_ids)
+  
+  networks[keep_ids]
+}

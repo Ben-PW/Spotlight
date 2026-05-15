@@ -92,14 +92,38 @@ datasets <- purrr::imap(
   }
 )
 
-plot(datasets$n60_ad3_c3$diagnostics)
-
-saveRDS(
-  datasets,
-  file = here::here("Data", "Run_14_05_26", "datasets")
-)
-
 #saveRDS(
-#  test_batch_1,
-#  file = here::here("Data", "Test1", "test_batch_1.rds")
+#  datasets,
+#  file = here::here("Data", "Run_14_05_26", "datasets")
 #)
+
+# Datasets saved from earlier
+# datasets <- readRDS(here::here("Data", "Run_14_05_26", "datasets"))
+
+
+################# Sample down to 100, maybe 200? ##############
+# Retaining as many unique basis ids as possible
+
+set.seed(123)
+
+datasets <- datasets |>
+  purrr::imap(\(basis_out, ds) {
+    
+    n_before <- length(basis_out$networks)
+    
+    basis_out$networks <- sampleDatasets(
+      networks = basis_out$networks,
+      target_n = 100
+    )
+    
+    n_after <- length(basis_out$networks)
+    
+    message(ds, ": sampled ", n_after, " from ", n_before, " networks")
+    
+    basis_out
+  })
+
+
+#plot(datasets$n60_ad3_c3$diagnostics)
+
+

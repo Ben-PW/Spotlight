@@ -56,26 +56,28 @@ source(here::here("Scripts", "Data_simulation.R"))
 ################################################################################
 # Data_simulation.R
 #
-# Purpose:
-#   Generates baseline networks for the spotlight simulation.
+# Generates baseline networks for the spotlight simulation.
+# Creates degree-sequence objects
+# Creates baseline simulated network objects
+# Leaves final network lists "datasets" in the environment for Spotlight_main.R
+# or saves them for easy loading later
 #
-# - Sources degree-sequence and network simulation helper functions
-# - Creates degree-sequence objects
-# - Creates baseline simulated network objects
-# - Leaves final network lists in the environment for Spotlight_main.R
 ################################################################################
 
 source(here::here("Scripts", "Error_simulation_helpers.R"))
 
 ##### Convert all to igraph objects #####
 
-datasets <- lapply(test_batch_1, function(netlist) {
-  lapply(netlist, intergraph::asIgraph)
-})
+datasets <- datasets |>
+  purrr::map(\(basis_out) {
+    purrr::map(basis_out$networks, \(g) {
+      if (inherits(g, "igraph")) g else intergraph::asIgraph(g)
+    }) # implemented this check as might change simulateFromBasis to output
+  })   # igraph objects later
 
 ##### Ensure all are undirected #####
 
-datasets <- lapply(datasets, undirect)
+datasets <- purrr::map(datasets, undirect)
 
 ##### Assign ID to networks #####
 
@@ -118,7 +120,7 @@ source(here::here("Scripts", "Spotlight_helpers.R"))
 
 # Basic params for testing
 spotlight_pcts <- c(0.01, 0.05, 0.10) # % nodes spotlit
-miss_levels <- c(0.10, 0.30, 0.50) # missingness levels
+miss_levels <- c(0.10, 0.20, 0.30, 0.40, 0.50) # missingness levels
 alphas <- c(0, 10) # exponential degree bias ##### TEST PARAMETERS HERE ####
 bs <- c(1, 2, 4) # weights for non-spotlit ties
 
@@ -352,6 +354,20 @@ print("Loop completed and environment cleaned")
 
 ################################# Simulation Complete ###############################
 
+################################## Query results ###############################
+
+source(here::here("Scripts", "Queries.R"))
+
+# Disconnect from db once all necessary data is retrieved
+if (DBI::dbIsValid(con)) {
+  DBI::dbDisconnect(con, shutdown = TRUE)
+}
+
+##################################### Visualise ################################
+
+source(here::here("Scripts", "Visualisations.R"))
+
+##################################### Models? ##################################
 
 
 
