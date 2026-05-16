@@ -101,7 +101,7 @@ datasets <- purrr::imap(
 # datasets <- readRDS(here::here("Data", "Run_14_05_26", "datasets"))
 
 
-################# Sample down to 100, maybe 200? ##############
+################# Sample down to 100 ##############
 # Retaining as many unique basis ids as possible
 
 set.seed(123)
@@ -125,5 +125,5 @@ datasets <- datasets |>
 
 
 #plot(datasets$n60_ad3_c3$diagnostics)
-
-
+#par(mfrow = c(6,6), mar = c(1,1,1,1))
+#plotSimNetworks(datasets$n60_ad3_c3$networks)

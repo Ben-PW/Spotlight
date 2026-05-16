@@ -6,7 +6,7 @@ library(dbplyr)
 
 con <- DBI::dbConnect(
   duckdb::duckdb(),
-  dbdir = here("Results", "spotlight_results.duckdb")
+  dbdir = here::here("Results", "spotlight_results.duckdb")
 )
 
 on.exit(DBI::dbDisconnect(con, shutdown = TRUE), add = TRUE)
@@ -164,6 +164,9 @@ ORDER BY
 
 ################################## Node bias plots ##############################
 
+# NB this query removes any nodes with infinite or NaN values, meaning these values 
+# only hold for nodes connected in some way to a component
+
 node_bias_df <- DBI::dbGetQuery(con, "
     SELECT
     obs.dataset,
@@ -176,37 +179,54 @@ node_bias_df <- DBI::dbGetQuery(con, "
 
     AVG(CASE 
           WHEN obs.Spotlight = 1 
-          THEN (obs.Degree - gt.Degree) / gt.Degree 
+          THEN (obs.Degree_raw - gt.Degree_raw) / gt.Degree_raw 
         END) 
         AS mean_degree_bias_spotlit,
         
     AVG(CASE 
           WHEN obs.Spotlight = 0 
-          THEN (obs.Degree - gt.Degree) / gt.Degree 
+          THEN (obs.Degree_raw - gt.Degree_raw) / gt.Degree_raw 
         END) 
         AS mean_degree_bias_nonspotlit,
 
     AVG(CASE 
           WHEN obs.Spotlight = 1 
-          THEN (obs.Degree - gt.Degree) / gt.Degree 
+          THEN (obs.Degree_raw - gt.Degree_raw) / gt.Degree_raw 
         END)
     -
     AVG(CASE 
           WHEN obs.Spotlight = 0 
-          THEN (obs.Degree - gt.Degree) / gt.Degree 
+          THEN (obs.Degree_raw - gt.Degree_raw) / gt.Degree_raw 
         END) 
         AS degree_spotlight_lift,
 
     AVG(CASE 
           WHEN obs.Spotlight = 1 
-          THEN (obs.Betweenness - gt.Betweenness) / NULLIF(gt.Betweenness, 0) 
+          THEN (obs.Betweenness_raw - gt.Betweenness_raw) / NULLIF(gt.Betweenness_raw, 0) 
         END)
     -
     AVG(CASE 
           WHEN obs.Spotlight = 0 
-          THEN (obs.Betweenness - gt.Betweenness) / NULLIF(gt.Betweenness, 0) 
+          THEN (obs.Betweenness_raw - gt.Betweenness_raw) / NULLIF(gt.Betweenness_raw, 0) 
         END) 
-        AS betweenness_spotlight_lift,
+        AS Betweenness_spotlight_lift,
+        
+    AVG(CASE 
+          WHEN obs.Spotlight = 1
+          AND NOT isnan(obs.Closeness_raw)
+          AND NOT isnan(gt.Closeness_raw)
+          AND gt.Closeness_raw != 0
+          THEN (obs.Closeness_raw - gt.Closeness_raw) / gt.Closeness_raw
+        END)
+    -
+    AVG(CASE 
+          WHEN obs.Spotlight = 0
+          AND NOT isnan(obs.Closeness_raw)
+          AND NOT isnan(gt.Closeness_raw)
+          AND gt.Closeness_raw != 0
+          THEN (obs.Closeness_raw - gt.Closeness_raw) / gt.Closeness_raw
+        END) 
+        AS closeness_spotlight_lift,
 
     AVG(CASE 
           WHEN obs.Spotlight = 1 
@@ -244,6 +264,7 @@ ORDER BY
 ")
 
 # Problems with node bias plots
+# turned out problem was some of the variables were normalised, some werent
 
 node_bias_check <- DBI::dbGetQuery(con, "
                                    WITH node_bias AS (

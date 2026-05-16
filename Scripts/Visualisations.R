@@ -158,7 +158,7 @@ ggplot(
   node_bias_df,
   aes(
     x = b,
-    y = betweenness_spotlight_lift,
+    y = degree_spotlight_lift,
     group = interaction(miss_level, dataset),
     colour = factor(miss_level)
   )
@@ -166,7 +166,7 @@ ggplot(
   geom_hline(yintercept = 0, linetype = "dashed") +
   geom_line(alpha = 0.6) +
   geom_point(size = 2) +
-  facet_grid(dataset) +
+  facet_grid(alpha ~ spotlight_pct) +
   labs(
     x = "Spotlight strength (b)",
     y = "Degree spotlight lift",
@@ -194,6 +194,90 @@ ggplot(
   facet_grid(alpha ~ spotlight_pct) +
   labs(
     x = "Spotlight strength (b)",
+    y = "Degree spotlight lift",
+    colour = "Missingness",
+    title = "Spotlight-induced inflation of node betweenness"
+  ) +
+  theme_minimal()
+
+# Eigenvector
+
+ggplot(
+  node_bias_df,
+  aes(
+    x = b,
+    y = eigenvector_spotlight_lift,
+    group = interaction(miss_level, dataset),
+    colour = factor(miss_level)
+  )
+) +
+  geom_hline(yintercept = 0, linetype = "dashed") +
+  geom_line(alpha = 0.6) +
+  geom_point(size = 2) +
+  facet_grid(alpha ~ spotlight_pct) +
+  labs(
+    x = "Spotlight strength (b)",
+    y = "Degree spotlight lift",
+    colour = "Missingness",
+    title = "Spotlight-induced inflation of eigenvector centrality"
+  ) +
+  theme_minimal()
+
+# Closeness
+
+node_bias_df %>%
+  dplyr::filter(is.finite(closeness_spotlight_lift)) %>%
+  ggplot(
+    aes(
+      x = b,
+      y = closeness_spotlight_lift,
+      group = interaction(miss_level, dataset),
+      colour = factor(miss_level)
+    )
+  ) +
+  geom_hline(yintercept = 0, linetype = "dashed") +
+  geom_line(alpha = 0.6) +
+  geom_point(size = 2) +
+  facet_grid(alpha ~ spotlight_pct) +
+  theme_minimal()
+
+ggplot(
+  node_bias_df,
+  aes(
+    x = b,
+    y = closeness_spotlight_lift,
+    group = interaction(miss_level, dataset),
+    colour = factor(miss_level)
+  )
+) +
+  geom_hline(yintercept = 0, linetype = "dashed") +
+  geom_line(alpha = 0.6) +
+  geom_point(size = 2) +
+  facet_grid(alpha ~ spotlight_pct) +
+  labs(
+    x = "Spotlight strength (b)",
+    y = "Degree spotlight lift",
+    colour = "Missingness",
+    title = "Spotlight-induced inflation of closeness centrality (connected nodes only)"
+  ) +
+  theme_minimal()
+
+
+ggplot(
+  node_bias_df,
+  aes(
+    x = b,
+    y = betweenness_spotlight_lift,
+    group = interaction(miss_level, dataset),
+    colour = factor(miss_level)
+  )
+) +
+  geom_hline(yintercept = 0, linetype = "dashed") +
+  geom_line(alpha = 0.6) +
+  geom_point(size = 2) +
+  facet_grid(alpha ~ spotlight_pct) +
+  labs(
+    x = "Spotlight strength (b)",
     y = "Betweenness spotlight lift",
     colour = "Missingness",
     title = "Spotlight-induced inflation of node betweenness"
@@ -204,7 +288,7 @@ ggplot(
   node_bias_df,
   aes(
     x = b,
-    y = eigenvector_spotlight_lift,
+    y = closeness_spotlight_lift,
     group = interaction(miss_level, dataset),
     colour = factor(miss_level)
   )
