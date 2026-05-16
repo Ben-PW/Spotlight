@@ -133,7 +133,7 @@ computeMetrics <- function(graph_list) {
 # Compute node level metrics over a list of networks and store as tibble, with
 # graph metadata extrcated from graph attributes
 
-computeCentralityDf <- function(graph_list, normalized = FALSE) {
+computeCentralityDf <- function(graph_list) {
   purrr::map_dfr(graph_list, function(g) {
     tibble::tibble(
       dataset = igraph::graph_attr(g, "dataset"),
@@ -149,18 +149,29 @@ computeCentralityDf <- function(graph_list, normalized = FALSE) {
       Spotlight = as.integer(igraph::V(g)$Spotlight),
       # ADD THE ATTRIBUTE LOGIC HERE
       
-      Degree = igraph::degree(g, mode = "all", normalized = normalized),
+      Degree_norm = igraph::degree(g, mode = "all", normalized = TRUE),
+      Degree_raw = igraph::degree(g, mode = "all", normalized = FALSE),
       
-      Betweenness = igraph::betweenness(
+      Betweenness_norm = igraph::betweenness(
         g,
         directed = igraph::is_directed(g),
-        normalized = normalized
+        normalized = TRUE
+      ),
+      Betweenness_raw = igraph::betweenness(
+        g,
+        directed = igraph::is_directed(g),
+        normalized = FALSE
       ),
       
-      Closeness = igraph::closeness(
+      Closeness_norm = igraph::closeness(
         g,
         mode = "all",
-        normalized = normalized
+        normalized = TRUE
+      ),
+      Closeness_raw = igraph::closeness(
+        g,
+        mode = "all",
+        normalized = FALSE
       ),
       
       Eigenvector = igraph::eigen_centrality(

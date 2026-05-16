@@ -243,6 +243,62 @@ ORDER BY
     obs.miss_level
 ")
 
+# Problems with node bias plots
+
+node_bias_check <- DBI::dbGetQuery(con, "
+                                   WITH node_bias AS (
+  SELECT
+    obs.dataset,
+    obs.replicate_id,
+    obs.alpha,
+    obs.spotlight_pct,
+    obs.b,
+    obs.miss_level,
+    obs.Spotlight,
+
+    (obs.Degree - gt.Degree) / NULLIF(gt.Degree, 0) AS degree_rb
+
+  FROM node_results AS obs
+  JOIN node_results_GT AS gt
+    ON obs.dataset = gt.dataset
+   AND obs.replicate_id = gt.replicate_id
+   AND obs.NodeID = gt.NodeID
+
+  WHERE obs.source = 'observed'
+    AND gt.source = 'true'
+),
+
+graph_gap AS (
+  SELECT
+    dataset,
+    replicate_id,
+    alpha,
+    spotlight_pct,
+    b,
+    miss_level,
+
+    AVG(CASE WHEN Spotlight = 1 THEN degree_rb END) AS degree_rb_spotlit,
+    AVG(CASE WHEN Spotlight = 0 THEN degree_rb END) AS degree_rb_nonspotlit,
+
+    AVG(CASE WHEN Spotlight = 1 THEN degree_rb END)
+    -
+    AVG(CASE WHEN Spotlight = 0 THEN degree_rb END) AS degree_bias_gap
+
+  FROM node_bias
+  GROUP BY
+    dataset,
+    replicate_id,
+    alpha,
+    spotlight_pct,
+    b,
+    miss_level
+)
+
+SELECT *
+FROM graph_gap
+ORDER BY ABS(degree_bias_gap) ASC
+LIMIT 50;")
+
 ################################# Trialing a model ###################################
 
 model_df <- DBI::dbGetQuery(con, "

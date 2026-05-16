@@ -64,6 +64,44 @@ ggplot(network_bias_df, aes(x = miss_level_obs, y = clustering_ARB, colour = fac
   stat_summary(fun.data = mean_cl_boot, geom = "ribbon", alpha = 0.15, aes(fill = factor(b_obs)), colour = NA) +
   facet_wrap(~ alpha_obs)
 
+# APL
+ggplot(network_bias_df, aes(x = miss_level_obs, y = APL_ARB, colour = factor(b_obs))) +
+  stat_summary(fun = mean, geom = "line") +
+  stat_summary(fun.data = mean_cl_boot, geom = "ribbon", alpha = 0.15, aes(fill = factor(b_obs)), colour = NA) +
+  facet_wrap(~ alpha_obs)
+
+# Above plots but binned by centralisation
+network_bias_df %>%
+  dplyr::mutate(
+    dcent_gt_bin = dplyr::ntile(dcent_gt, 3),
+    dcent_gt_bin = factor(
+      dcent_gt_bin,
+      labels = c("Low GT centralisation",
+                 "Mid GT centralisation",
+                 "High GT centralisation")
+    )
+  ) %>%
+  ggplot(aes(
+    x = miss_level_obs,
+    y = dcent_ARB,
+    colour = factor(b_obs),
+    fill = factor(b_obs)
+  )) +
+  stat_summary(fun = mean, geom = "line") +
+  stat_summary(
+    fun.data = mean_cl_boot,
+    geom = "ribbon",
+    alpha = 0.15,
+    colour = NA
+  ) +
+  facet_grid(dcent_gt_bin ~ alpha_obs) +
+  labs(
+    x = "Missingness level",
+    y = "Average path length relative bias",
+    colour = "b",
+    fill = "b"
+  )
+
 ################################# Heat map attempt (traumatic) ##########################
 
 ggplot(network_bias_df,
@@ -78,7 +116,7 @@ ggplot(network_bias_df,
 
 network_bias_df %>%
   dplyr::mutate(
-    dcent_gt_bin = cut(dcent_gt, breaks = 2)
+    dcent_gt_bin = cut(dcent_gt, breaks = 3)
   ) %>%
   ggplot(aes(x = dcent_gt_bin, y = dcent_ARB)) +
   geom_boxplot() +
@@ -87,9 +125,19 @@ network_bias_df %>%
     x = "Ground-truth degree centralisation",
     y = "Degree centralisation relative bias"
   )
+
+ggplot(network_bias_df, aes(x = dcent_gt, y = dcent_ARB)) + 
+  geom_point(alpha = 0.2) + 
+  geom_smooth(se = TRUE) + 
+  facet_grid(miss_level_obs ~ b_obs) +
+  labs(
+    x = "Ground-truth degree centralisation",
+    y = "Degree centralisation relative bias"
+  )
+
 ggplot(network_bias_df, aes(x = dcent_gt, y = dcent_ARB)) +
   geom_point(alpha = 0.2) +
-  #geom_smooth(se = TRUE) +
+  geom_smooth(se = TRUE) +
   facet_grid(miss_level_obs ~ b_obs)
 
 ############################### Node lift plots ##################################
@@ -107,10 +155,10 @@ lift_df <- lift_df %>%
 # Degree lift
 
 ggplot(
-  lift_df,
+  node_bias_df,
   aes(
     x = b,
-    y = degree_spotlight_lift,
+    y = betweenness_spotlight_lift,
     group = interaction(miss_level, dataset),
     colour = factor(miss_level)
   )
@@ -118,7 +166,7 @@ ggplot(
   geom_hline(yintercept = 0, linetype = "dashed") +
   geom_line(alpha = 0.6) +
   geom_point(size = 2) +
-  facet_grid(dataset+ alpha ~ spotlight_pct) +
+  facet_grid(dataset) +
   labs(
     x = "Spotlight strength (b)",
     y = "Degree spotlight lift",
@@ -132,7 +180,7 @@ ggplot(
 # illogical
 
 ggplot(
-  lift_df,
+  node_bias_df,
   aes(
     x = b,
     y = betweenness_spotlight_lift,
@@ -143,7 +191,7 @@ ggplot(
   geom_hline(yintercept = 0, linetype = "dashed") +
   geom_line(alpha = 0.6) +
   geom_point(size = 2) +
-  facet_grid(dataset+ alpha ~ spotlight_pct) +
+  facet_grid(alpha ~ spotlight_pct) +
   labs(
     x = "Spotlight strength (b)",
     y = "Betweenness spotlight lift",
@@ -153,7 +201,7 @@ ggplot(
   theme_minimal()
 
 ggplot(
-  lift_df,
+  node_bias_df,
   aes(
     x = b,
     y = eigenvector_spotlight_lift,
@@ -164,7 +212,7 @@ ggplot(
   geom_hline(yintercept = 0, linetype = "dashed") +
   geom_line(alpha = 0.6) +
   geom_point(size = 2) +
-  facet_grid(dataset+ alpha ~ spotlight_pct) +
+  facet_grid(dataset) +
   labs(
     x = "Spotlight strength (b)",
     y = "Betweenness spotlight lift",

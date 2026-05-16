@@ -7,16 +7,11 @@
 
 ########################################### Begin ##############################################
 
-here::here()
-
-source('Data_process.R') # ERGMs fit to data
-source('Compute_NetStats.R') # Assorted helper functions
-source('Spotlight_function.R') # Spotlight relevant functions
-source('Data_handlers.R') # Network ID system and associated handlers
 
 ################################### Database setup ###########################################
 
 # All file management is now done with respect to current wd
+here::here()
 
 # Check for local results folder and create if missing
 
@@ -111,6 +106,7 @@ nodeGT <- purrr::map_dfr(datasets, function(graph_list) {
 DBI::dbWriteTable(con, "network_results_gt", graphGT, overwrite = TRUE)
 DBI::dbWriteTable(con, "node_results_gt", nodeGT, overwrite = TRUE)
 
+rm(list = c("graphGT", "nodeGT"))
 
 #################################### Begin sim ##################################
 
@@ -121,8 +117,8 @@ source(here::here("Scripts", "Spotlight_helpers.R"))
 # Basic params for testing
 spotlight_pcts <- c(0.01, 0.05, 0.10) # % nodes spotlit
 miss_levels <- c(0.10, 0.20, 0.30, 0.40, 0.50) # missingness levels
-alphas <- c(0, 10) # exponential degree bias ##### TEST PARAMETERS HERE ####
-bs <- c(1, 2, 4) # weights for non-spotlit ties
+alphas <- c(0, 1, 2, 4, 8) # exponential degree bias 
+bs <- c(1, 2, 4, 8) # weights for non-spotlit ties
 
 #### Loop setup ####
 
@@ -221,8 +217,7 @@ tryCatch(
                 }
               
                 # Calculate node level centralities
-                node_rows[[kn]] <- computeCentralityDf(obs_list,
-                                                       normalized = TRUE)
+                node_rows[[kn]] <- computeCentralityDf(obs_list)
               
                 kn <- kn + 1L
               
