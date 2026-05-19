@@ -41,6 +41,101 @@ network_results <- DBI::dbGetQuery(con, "
                                    LIMIT 50;
                                    ")
 
+################################ Add rank order columns ############################
+
+# The original simulation did not calculate rank order of nodes by centrality scores,
+# This will be useful for outcome metrics and is efficient to do using SQL
+
+# Create table for rank order in ground truth networks
+
+DBI::dbExecute(con, "
+CREATE OR REPLACE TABLE node_results_GT_ranked AS
+SELECT
+  *,
+  
+  RANK() OVER (
+    PARTITION BY dataset, replicate_id
+    ORDER BY Degree_raw DESC
+  ) AS Degree_raw_rank,
+
+  RANK() OVER (
+    PARTITION BY dataset, replicate_id
+    ORDER BY Degree_norm DESC
+  ) AS Degree_norm_rank,
+
+  RANK() OVER (
+    PARTITION BY dataset, replicate_id
+    ORDER BY Betweenness_raw DESC
+  ) AS Betweenness_raw_rank,
+
+  RANK() OVER (
+    PARTITION BY dataset, replicate_id
+    ORDER BY Betweenness_norm DESC
+  ) AS Betweenness_norm_rank,
+
+  RANK() OVER (
+    PARTITION BY dataset, replicate_id
+    ORDER BY Closeness_raw DESC
+  ) AS Closeness_raw_rank,
+
+  RANK() OVER (
+    PARTITION BY dataset, replicate_id
+    ORDER BY Closeness_norm DESC
+  ) AS Closeness_norm_rank,
+
+  RANK() OVER (
+    PARTITION BY dataset, replicate_id
+    ORDER BY Eigenvector DESC
+  ) AS Eigenvector_rank
+
+FROM node_results_GT
+")
+
+# Create table for rank order in obsereved networks
+
+DBI::dbExecute(con, "
+CREATE OR REPLACE TABLE node_results_ranked AS
+SELECT
+  *,
+
+  RANK() OVER (
+    PARTITION BY dataset, replicate_id, alpha, spotlight_pct, b, miss_level
+    ORDER BY Degree_raw DESC
+  ) AS Degree_raw_rank,
+
+  RANK() OVER (
+    PARTITION BY dataset, replicate_id, alpha, spotlight_pct, b, miss_level
+    ORDER BY Degree_norm DESC
+  ) AS Degree_norm_rank,
+
+  RANK() OVER (
+    PARTITION BY dataset, replicate_id, alpha, spotlight_pct, b, miss_level
+    ORDER BY Betweenness_raw DESC
+  ) AS Betweenness_raw_rank,
+
+  RANK() OVER (
+    PARTITION BY dataset, replicate_id, alpha, spotlight_pct, b, miss_level
+    ORDER BY Betweenness_norm DESC
+  ) AS Betweenness_norm_rank,
+
+  RANK() OVER (
+    PARTITION BY dataset, replicate_id, alpha, spotlight_pct, b, miss_level
+    ORDER BY Closeness_raw DESC NULLS LAST
+  ) AS Closeness_raw_rank,
+
+  RANK() OVER (
+    PARTITION BY dataset, replicate_id, alpha, spotlight_pct, b, miss_level
+    ORDER BY Closeness_norm DESC NULLS LAST
+  ) AS Closeness_norm_rank,
+
+  RANK() OVER (
+    PARTITION BY dataset, replicate_id, alpha, spotlight_pct, b, miss_level
+    ORDER BY Eigenvector DESC
+  ) AS Eigenvector_rank
+
+FROM node_results
+")
+
 ######################## Query to get network level differences ######################
 
 # Because the tables for network level results are comparatively small, they can
@@ -319,6 +414,184 @@ SELECT *
 FROM graph_gap
 ORDER BY ABS(degree_bias_gap) ASC
 LIMIT 50;")
+
+############ Query for data for network level mean absolute bias plots #########
+
+# These should be presented alongside average relative bias plots, to show the 
+# difference between the magnitude of bias and the direction of bias
+
+network_bias_long <- DBI::dbGetQuery(con, "
+WITH gt_aug AS (
+  SELECT
+    *,
+    CASE 
+      WHEN dcent BETWEEN 0.05 AND 0.15 THEN 'Low'
+      WHEN dcent BETWEEN 0.25 AND 0.35 THEN 'Med'
+      WHEN dcent BETWEEN 0.45 AND 0.55 THEN 'High'
+      ELSE 'WARNING'
+    END AS 'baseline_centralisation'
+  FROM network_results_gt
+),
+
+bias_long AS (
+
+  SELECT
+    obs.dataset,
+    obs.replicate_id,
+    obs.alpha,
+    obs.spotlight_pct,
+    obs.b,
+    obs.miss_level,
+    gt.baseline_centralisation,
+
+
+    'density' AS metric,
+    obs.density AS observed_value,
+    gt.density AS gt_value,
+    (obs.density - gt.density) / NULLIF(gt.density, 0) AS relative_bias,
+    ABS((obs.density - gt.density) / NULLIF(gt.density, 0)) AS abs_relative_bias
+
+  FROM network_results obs
+  INNER JOIN gt_aug gt
+    ON obs.dataset = gt.dataset
+   AND obs.replicate_id = gt.replicate_id
+
+  UNION ALL
+
+  SELECT
+    obs.dataset,
+    obs.replicate_id,
+    obs.alpha,
+    obs.spotlight_pct,
+    obs.b,
+    obs.miss_level,
+    gt.baseline_centralisation,
+
+
+    'dcent' AS metric,
+    obs.dcent AS observed_value,
+    gt.dcent AS gt_value,
+    (obs.dcent - gt.dcent) / NULLIF(gt.dcent, 0) AS relative_bias,
+    ABS((obs.dcent - gt.dcent) / NULLIF(gt.dcent, 0)) AS abs_relative_bias
+
+  FROM network_results obs
+  INNER JOIN gt_aug gt
+    ON obs.dataset = gt.dataset
+   AND obs.replicate_id = gt.replicate_id
+
+  UNION ALL
+
+  SELECT
+    obs.dataset,
+    obs.replicate_id,
+    obs.alpha,
+    obs.spotlight_pct,
+    obs.b,
+    obs.miss_level,
+    gt.baseline_centralisation,
+
+    'clustering' AS metric,
+    obs.clustering AS observed_value,
+    gt.clustering AS gt_value,
+    (obs.clustering - gt.clustering) / NULLIF(gt.clustering, 0) AS relative_bias,
+    ABS((obs.clustering - gt.clustering) / NULLIF(gt.clustering, 0)) AS abs_relative_bias
+
+  FROM network_results obs
+  INNER JOIN gt_aug gt
+    ON obs.dataset = gt.dataset
+   AND obs.replicate_id = gt.replicate_id
+
+  UNION ALL
+
+  SELECT
+    obs.dataset,
+    obs.replicate_id,
+    obs.alpha,
+    obs.spotlight_pct,
+    obs.b,
+    obs.miss_level,
+    gt.baseline_centralisation,
+
+
+    'APL' AS metric,
+    obs.APL AS observed_value,
+    gt.APL AS gt_value,
+    (obs.APL - gt.APL) / NULLIF(gt.APL, 0) AS relative_bias,
+    ABS((obs.APL - gt.APL) / NULLIF(gt.APL, 0)) AS abs_relative_bias
+
+  FROM network_results obs
+  INNER JOIN gt_aug gt
+    ON obs.dataset = gt.dataset
+   AND obs.replicate_id = gt.replicate_id
+)
+
+SELECT *
+FROM bias_long
+WHERE abs_relative_bias IS NOT NULL
+")
+
+library(dplyr)
+library(ggplot2)
+
+metric_choice <- "dcent"
+
+plot_df_1 <- network_bias_long %>%
+  filter(metric == metric_choice) %>%
+  filter(baseline_centralisation != "WARNING") %>%
+  rename(gt_cent = baseline_centralisation) %>%
+  mutate(
+    gt_cent = factor(
+      gt_cent,
+      levels = c(
+        "High",
+        "Med",
+        "Low"
+      )
+    )
+  ) %>%
+  group_by(
+    miss_level,
+    b,
+    alpha,
+    gt_cent
+  ) %>%
+  summarise(
+    mean_abs_rb = mean(abs_relative_bias, na.rm = TRUE),
+    q25 = quantile(abs_relative_bias, 0.25, na.rm = TRUE),
+    q75 = quantile(abs_relative_bias, 0.75, na.rm = TRUE),
+    .groups = "drop"
+  )
+
+ggplot(
+  plot_df_1,
+  aes(
+    x = miss_level,
+    y = mean_abs_rb,
+    colour = factor(b),
+    fill = factor(b),
+    group = factor(b)
+  )
+) +
+  geom_ribbon(
+    aes(ymin = q25, ymax = q75),
+    alpha = 0.15,
+    colour = NA
+  ) +
+  geom_line(linewidth = 1) +
+  geom_point(size = 2) +
+  facet_grid(
+    gt_cent ~ alpha,
+    labeller = label_both
+  ) +
+  labs(
+    x = "Missingness level",
+    y = "Mean absolute relative bias",
+    colour = "Non-spotlit\ntie weight (b)",
+    fill = "Non-spotlit\ntie weight (b)",
+    title = paste("Absolute relative bias in", metric_choice),
+    subtitle = "Faceted by baseline centralisation and spotlight selection bias"
+  ) +
+  theme_minimal()
 
 ################################# Trialing a model ###################################
 

@@ -1,3 +1,30 @@
+here::here()
+
+############################## Network level metrics #############################
+
+# Mean absolute relative bais in network level metrics
+
+source(here::here("Scripts", "Vis_scripts", "Mn_abs_rel_bias_networks.R"))
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 ########################### Bias slopes test ####################################
 
 library(ggplot2)
@@ -36,7 +63,9 @@ ggplot(
   geom_hline(yintercept = 0, linetype = "dashed") +
   geom_line(linewidth = 1) +
   geom_point(size = 2) +
-  facet_grid(dataset + alpha ~ spotlight_pct) +
+  facet_grid(
+    #dataset + 
+      alpha ~ spotlight_pct) +
   labs(
     x = "Missingness level",
     y = "Mean degree centralisation bias",
@@ -71,6 +100,19 @@ ggplot(network_bias_df, aes(x = miss_level_obs, y = APL_ARB, colour = factor(b_o
   facet_wrap(~ alpha_obs)
 
 # Above plots but binned by centralisation
+
+# Thoughts about these plots
+# Design variables displayed:
+# - Spotlight degree bias
+# - Missingness level
+# - Centralisation
+# - Spotlight sampling bias
+# Design variables omitted:
+# - Density
+# - Size
+# - Spotlight sampling fraction
+
+# APL
 network_bias_df %>%
   dplyr::mutate(
     dcent_gt_bin = dplyr::ntile(dcent_gt, 3),
@@ -97,7 +139,73 @@ network_bias_df %>%
   facet_grid(dcent_gt_bin ~ alpha_obs) +
   labs(
     x = "Missingness level",
-    y = "Average path length relative bias",
+    y = "Average Relative Bias in dcent",
+    colour = "b",
+    fill = "b"
+  )
+
+
+# APL
+network_bias_df %>%
+  dplyr::mutate(
+    dcent_gt_bin = dplyr::ntile(dcent_gt, 3),
+    dcent_gt_bin = factor(
+      dcent_gt_bin,
+      labels = c("Low GT centralisation",
+                 "Mid GT centralisation",
+                 "High GT centralisation")
+    )
+  ) %>%
+  ggplot(aes(
+    x = miss_level_obs,
+    y = dcent_ARB,
+    colour = factor(b_obs),
+    fill = factor(b_obs)
+  )) +
+  stat_summary(fun = mean, geom = "line") +
+  stat_summary(
+    fun.data = mean_cl_boot,
+    geom = "ribbon",
+    alpha = 0.15,
+    colour = NA
+  ) +
+  facet_grid(dcent_gt_bin ~ alpha_obs) +
+  labs(
+    x = "Missingness level",
+    y = "Average relative bias in degree centralisation",
+    colour = "b",
+    fill = "b"
+  )
+
+# Clustering
+
+network_bias_df %>%
+  dplyr::mutate(
+    dcent_gt_bin = dplyr::ntile(dcent_gt, 3),
+    dcent_gt_bin = factor(
+      dcent_gt_bin,
+      labels = c("Low GT centralisation",
+                 "Mid GT centralisation",
+                 "High GT centralisation")
+    )
+  ) %>%
+  ggplot(aes(
+    x = miss_level_obs,
+    y = clustering_ARB,
+    colour = factor(b_obs),
+    fill = factor(b_obs)
+  )) +
+  stat_summary(fun = mean, geom = "line") +
+  stat_summary(
+    fun.data = mean_cl_boot,
+    geom = "ribbon",
+    alpha = 0.15,
+    colour = NA
+  ) +
+  facet_grid(dcent_gt_bin ~ alpha_obs) +
+  labs(
+    x = "Missingness level",
+    y = "Average relative bias in global clustering coefficient",
     colour = "b",
     fill = "b"
   )
@@ -171,7 +279,7 @@ ggplot(
     x = "Spotlight strength (b)",
     y = "Degree spotlight lift",
     colour = "Missingness",
-    title = "Spotlight-induced inflation of node degree"
+    title = "Spotlight-induced inflation of node degree. Lines represent unique dataset x missingness level conditions"
   ) +
   theme_minimal()
 
