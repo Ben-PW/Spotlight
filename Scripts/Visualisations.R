@@ -1,14 +1,64 @@
+library(ggplot2)
+library(dplyr)
+
 here::here()
 
 ############################## Network level metrics #############################
 
-# Mean absolute relative bais in network level metrics
+# Mean absolute relative bais in network level metrics. Variables visualised are:
+# Target metrics: 
+# - clustering
+# - degree centralisation
+# - APL
+# Design variables:
+# - alpha
+# - missingness level
+# - spotlight strength
+# - ground truth centralisation
 
+# Required dataframe: mn_abs_rel_bias_nets
 source(here::here("Scripts", "Vis_scripts", "Mn_abs_rel_bias_networks.R"))
 
+# Average relative bias in network level metrics. Variables visualised are:
+# Target metrics: 
+# - clustering
+# - degree centralisation
+# - APL
+# Design variables:
+# - alpha
+# - missingness level
+# - spotlight strength
+# - ground truth centralisation
 
+# Required dataframe: network_bias_df
+source(here::here("Scripts", "Vis_scripts", "Mn_rel_bias_networks.R"))
 
+############################### Node level metrics ##############################
 
+############## Aggregating over all nodes (no spitlight distinction) ############
+
+############## IMPORTANT
+# Below will not work, relative bias requires dividing by the ground truth value,
+# which means any value of 0 will result in a comparison being discarded
+# Node level plots will have to rely on correlations and the other planned metrics
+# Mean absolute relative bias and mean relative bias in node centrality metrics
+# induced by spotlight effects. Variables visualised are:
+# Target metrics:
+# - Degree centrality
+# - Betweenness centrality
+# - Closeness centrality
+# - Eigenvector ccentrality
+# Design variables:
+# - alpha
+# - missingness level
+# - spotlight strength
+# - ground truth centralisation
+
+# Required dataframe: node_bias_agg1
+#source(here::here("Scripts", "Vis_scripts", "Mn_bias_nodes_agg.R"))
+
+# Correlation plots between node level values 
+source(here::here("Scripts", "Vis_scripts", "Corr_nodes.R"))
 
 
 

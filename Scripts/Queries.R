@@ -29,6 +29,13 @@ node_results <- DBI::dbGetQuery(con, "
                                 LIMIT 50;
                                 ")
 
+node_results_ranked <- DBI::dbGetQuery(con, "
+                                       SELECT *
+                                       FROM node_results_ranked
+                                       ORDER BY dataset, replicate_id, alpha, spotlight_pct, b, miss_level, NodeID
+                                       LIMIT 50;
+                                       ")
+
 network_results_gt <- DBI::dbGetQuery(con, "
                                       SELECT *
                                       FROM network_results_gt
@@ -136,6 +143,9 @@ SELECT
 FROM node_results
 ")
 
+
+#################################### NETWORK BIAS ###################################
+
 ######################## Query to get network level differences ######################
 
 # Because the tables for network level results are comparatively small, they can
@@ -156,108 +166,170 @@ network_bias_df <- tbl(con, "network_results") %>%
   ) %>%
   collect()
 
-# Query to check the spotlight simulation is properly biased towards degree
-
-test <- DBI::dbGetQuery(con, "
-  WITH spotlight_assignments AS (
-    SELECT DISTINCT
-      dataset,
-      replicate_id,
-      alpha,
-      spotlight_pct,
-      NodeID,
-      Spotlight
-    FROM node_results
-  ),
-
-  joined AS (
-    SELECT
-      s.dataset,
-      s.replicate_id,
-      s.alpha,
-      s.spotlight_pct,
-      s.NodeID,
-      s.Spotlight,
-      gt.Degree AS true_degree
-    FROM spotlight_assignments s
-    LEFT JOIN node_results_gt gt
-      ON s.dataset = gt.dataset
-     AND s.replicate_id = gt.replicate_id
-     AND s.NodeID = gt.NodeID
-  ),
-
-  per_network AS (
-    SELECT
-      dataset,
-      replicate_id,
-      alpha,
-      spotlight_pct,
-      AVG(CASE WHEN Spotlight = 1 THEN true_degree END) AS mean_spotlit_degree,
-      MAX(true_degree) AS max_degree_network
-    FROM joined
-    GROUP BY dataset, replicate_id, alpha, spotlight_pct
-  )
-
-  SELECT
-    dataset,
-    alpha,
-    spotlight_pct,
-    AVG(mean_spotlit_degree) AS mean_spotlit_degree,
-    AVG(max_degree_network) AS mean_max_degree,
-    AVG(mean_spotlit_degree / max_degree_network) AS relative_to_max
-  FROM per_network
-  GROUP BY dataset, alpha, spotlight_pct
-  ORDER BY dataset, alpha, spotlight_pct;
-")
-
-############################################### BIAS CURVES #######################################
-
-bias_curve_test_1 <- DBI::dbGetQuery(con, "
-    SELECT
-    obs.dataset,
-    obs.alpha,
-    obs.spotlight_pct,
-    obs.b,
-    obs.miss_level,
-
-    COUNT(*) AS n_graphs,
-
-    AVG(obs.density - gt.density) AS mean_density_bias,
-    AVG((obs.density - gt.density) / NULLIF(gt.density, 0)) AS mean_density_rel_bias,
-
-    AVG(obs.dcent - gt.dcent) AS mean_dcent_bias,
-    AVG((obs.dcent - gt.dcent) / NULLIF(gt.dcent, 0)) AS mean_dcent_rel_bias,
-
-    AVG(obs.clustering - gt.clustering) AS mean_clustering_bias,
-    AVG((obs.clustering - gt.clustering) / NULLIF(gt.clustering, 0)) AS mean_clustering_rel_bias,
-
-    AVG(obs.APL - gt.APL) AS mean_APL_bias,
-    AVG((obs.APL - gt.APL) / NULLIF(gt.APL, 0)) AS mean_APL_rel_bias
-
-FROM network_results AS obs
-JOIN network_results_GT AS gt
-  ON obs.dataset = gt.dataset
- AND obs.replicate_id = gt.replicate_id
-
-WHERE obs.source = 'observed'
-  AND gt.source = 'true'
-
-GROUP BY
-    obs.dataset,
-    obs.alpha,
-    obs.spotlight_pct,
-    obs.b,
-    obs.miss_level
-
-ORDER BY
-    obs.dataset,
-    obs.alpha,
-    obs.spotlight_pct,
-    obs.b,
-    obs.miss_level;
-                ")
 
 ################################## Node bias plots ##############################
+
+################################# Correlation plots #############################
+
+# This dataframe is to calculate the pearson and spearman correlations between the
+# node level centrality values of the data. After testing it turns out relative 
+# bias metrics aren't suitable
+
+# Bit of a gross query but I find creating the temporary table first easier to wrap
+# my head around
+
+node_corr_df <- DBI::dbGetQuery(con, "
+
+-- Creating a temporary table temp of all the necessary variables
+
+    WITH temp AS (
+      SELECT
+      
+      -- listing obs_rank vars out explicitly for clarity instead of using SELECT *
+      
+        obs_rank.dataset,
+        obs_rank.replicate_id,
+        -- obs_rank.graph_id, removed as probably useless
+        obs_rank.alpha,
+        obs_rank.spotlight_pct,
+        obs_rank.b,
+        obs_rank.miss_level,
+        
+        -- observed rank centralisation
+        
+        obs_rank.Degree_raw_rank AS obs_degree_rank,
+        obs_rank.Betweenness_raw_rank AS obs_betweenness_rank,
+        obs_rank.Closeness_raw_rank AS obs_closeness_rank,
+        obs_rank.Eigenvector_rank AS obs_eigenvector_rank,
+      
+        -- gt rank centralisation
+        
+        gt_rank.Degree_raw_rank AS gt_degree_rank,
+        gt_rank.Betweenness_raw_rank AS gt_betweenness_rank,
+        gt_rank.Closeness_raw_rank AS gt_closeness_rank,
+        gt_rank.Eigenvector_rank AS gt_eigenvector_rank,
+        
+        -- obsereved centralisation
+        
+        obs_rank.Degree_raw AS obs_degree,
+        obs_rank.Closeness_raw AS obs_closeness,
+        obs_rank.Betweenness_raw AS obs_betweenness,
+        obs_rank.Eigenvector AS obs_eigenvector,
+        
+        -- gt centralisation
+        
+        gt_rank.Degree_raw AS gt_degree,
+        gt_rank.Closeness_raw AS gt_closeness,
+        gt_rank.Betweenness_raw AS gt_betweenness,
+        gt_rank.Eigenvector AS gt_eigenvector,
+      
+        -- get info on data simulation params for testing later
+        
+        net.density * (net.size - 1) AS net_av_degree,
+        net.dcent AS net_centralisation,
+        net.size AS net_size
+      
+      -- join the required tables to supply selected variables
+      
+      FROM node_results_ranked AS obs_rank
+      
+      JOIN node_results_GT_ranked AS gt_rank
+        ON obs_rank.dataset = gt_rank.dataset
+        AND obs_rank.replicate_id = gt_rank.replicate_id
+        AND obs_rank.NodeID = gt_rank.NodeID
+        
+      JOIN network_results_gt AS net
+        ON obs_rank.dataset = net.dataset
+        AND obs_rank.replicate_id = net.replicate_id
+      
+    )
+    
+    -- Pull all the required variables from temp
+    
+    SELECT
+    
+      dataset,
+      replicate_id,
+      -- graph_id, removed, as above
+      alpha,
+      spotlight_pct,
+      b,
+      miss_level,
+      
+      net_size,
+      net_av_degree,
+      net_centralisation,
+      
+      corr(obs_degree_rank, gt_degree_rank) AS degree_rank_corr,
+      corr(obs_closeness_rank, gt_closeness_rank) AS closeness_rank_corr,
+      corr(obs_betweenness_rank, gt_betweenness_rank) AS betweenness_rank_corr,
+      corr(obs_eigenvector_rank, gt_eigenvector_rank) AS eigenvector_rank_corr,
+      
+      corr(obs_degree, gt_degree) AS degree_corr,
+      
+      -- Closeness is apparently problematic
+      
+      corr(
+      CASE 
+        WHEN NOT isnan(obs_closeness)
+          AND NOT isnan(gt_closeness)
+        THEN obs_closeness
+      END,
+      CASE
+        WHEN NOT isnan(obs_closeness)
+          AND NOT isnan(gt_closeness)
+        THEN gt_closeness
+      END
+      ) AS closeness_corr,
+      
+      corr(obs_betweenness, gt_betweenness) AS betweenness_corr,
+      corr(obs_eigenvector, gt_eigenvector) AS eigenvector_corr,
+      
+      COUNT(*) AS n_nodes
+      
+    FROM temp
+    
+    -- Need to aggregate by every other variable
+      
+    GROUP BY
+      
+      dataset,
+      replicate_id,
+      -- graph_id,
+      alpha,
+      spotlight_pct,
+      b,
+      miss_level,
+      net_size,
+      net_av_degree,
+      net_centralisation
+      
+    ORDER BY
+      dataset,
+      replicate_id,
+      alpha,
+      spotlight_pct,
+      b,
+      miss_level;
+")
+
+# Diagnostics
+
+node_corr_df %>%
+  count(net_size, n_nodes)
+
+node_corr_df %>%
+  summarise(
+    degree_rank_na = sum(is.na(degree_rank_corr)),
+    closeness_rank_na = sum(is.na(closeness_rank_corr)),
+    betweenness_rank_na = sum(is.na(betweenness_rank_corr)),
+    eigenvector_rank_na = sum(is.na(eigenvector_rank_corr)),
+    
+    degree_na = sum(is.na(degree_corr)),
+    closeness_na = sum(is.na(closeness_corr)),
+    betweenness_na = sum(is.na(betweenness_corr)),
+    eigenvector_na = sum(is.na(eigenvector_corr))
+  )
 
 # NB this query removes any nodes with infinite or NaN values, meaning these values 
 # only hold for nodes connected in some way to a component
@@ -358,69 +430,13 @@ ORDER BY
     obs.miss_level
 ")
 
-# Problems with node bias plots
-# turned out problem was some of the variables were normalised, some werent
-
-node_bias_check <- DBI::dbGetQuery(con, "
-                                   WITH node_bias AS (
-  SELECT
-    obs.dataset,
-    obs.replicate_id,
-    obs.alpha,
-    obs.spotlight_pct,
-    obs.b,
-    obs.miss_level,
-    obs.Spotlight,
-
-    (obs.Degree - gt.Degree) / NULLIF(gt.Degree, 0) AS degree_rb
-
-  FROM node_results AS obs
-  JOIN node_results_GT AS gt
-    ON obs.dataset = gt.dataset
-   AND obs.replicate_id = gt.replicate_id
-   AND obs.NodeID = gt.NodeID
-
-  WHERE obs.source = 'observed'
-    AND gt.source = 'true'
-),
-
-graph_gap AS (
-  SELECT
-    dataset,
-    replicate_id,
-    alpha,
-    spotlight_pct,
-    b,
-    miss_level,
-
-    AVG(CASE WHEN Spotlight = 1 THEN degree_rb END) AS degree_rb_spotlit,
-    AVG(CASE WHEN Spotlight = 0 THEN degree_rb END) AS degree_rb_nonspotlit,
-
-    AVG(CASE WHEN Spotlight = 1 THEN degree_rb END)
-    -
-    AVG(CASE WHEN Spotlight = 0 THEN degree_rb END) AS degree_bias_gap
-
-  FROM node_bias
-  GROUP BY
-    dataset,
-    replicate_id,
-    alpha,
-    spotlight_pct,
-    b,
-    miss_level
-)
-
-SELECT *
-FROM graph_gap
-ORDER BY ABS(degree_bias_gap) ASC
-LIMIT 50;")
 
 ############ Query for data for network level mean absolute bias plots #########
 
 # These should be presented alongside average relative bias plots, to show the 
 # difference between the magnitude of bias and the direction of bias
 
-network_bias_long <- DBI::dbGetQuery(con, "
+mn_abs_rel_bias_nets <- DBI::dbGetQuery(con, "
 WITH gt_aug AS (
   SELECT
     *,
@@ -530,68 +546,394 @@ FROM bias_long
 WHERE abs_relative_bias IS NOT NULL
 ")
 
-library(dplyr)
-library(ggplot2)
+################# Query for aggregate node-level spotlight effects ##################
 
-metric_choice <- "dcent"
+# regex at start is to get target centralisation conditions from dataset names
+# instead of relying on realised centralisation bands 
 
-plot_df_1 <- network_bias_long %>%
-  filter(metric == metric_choice) %>%
-  filter(baseline_centralisation != "WARNING") %>%
-  rename(gt_cent = baseline_centralisation) %>%
-  mutate(
-    gt_cent = factor(
-      gt_cent,
-      levels = c(
-        "High",
-        "Med",
-        "Low"
-      )
-    )
-  ) %>%
-  group_by(
-    miss_level,
-    b,
+node_bias_agg1 <- DBI::dbGetQuery(con, "
+WITH gt_aug AS (
+  SELECT
+    *,
+    CASE regexp_extract(dataset, 'c([0-9]+)', 1)
+      WHEN '1' THEN 'Low'
+      WHEN '3' THEN 'Med'
+      WHEN '5' THEN 'High'
+      ELSE 'WARNING'
+    END AS baseline_centralisation
+  FROM node_results_gt
+),
+
+node_bias_long AS (
+
+  SELECT
+    obs.dataset,
+    obs.replicate_id,
+    obs.alpha,
+    obs.spotlight_pct,
+    obs.b,
+    obs.miss_level,
+    gt.baseline_centralisation,
+    obs.graph_id,
+    obs.NodeID,
+    
+    'Degree_raw' AS metric,
+    obs.Degree_raw AS observed_value,
+    gt.Degree_raw AS gt_value,
+    (obs.Degree_raw - gt.Degree_raw) / NULLIF(gt.Degree_raw, 0) AS relative_bias,
+    ABS((obs.Degree_raw - gt.Degree_raw) / NULLIF(gt.Degree_raw, 0)) AS abs_relative_bias
+
+  FROM node_results obs
+  INNER JOIN gt_aug gt
+    ON obs.dataset = gt.dataset
+   AND obs.replicate_id = gt.replicate_id
+   AND obs.NodeID = gt.NodeID
+
+  UNION ALL
+
+  SELECT
+    obs.dataset,
+    obs.replicate_id,
+    obs.alpha,
+    obs.spotlight_pct,
+    obs.b,
+    obs.miss_level,
+    gt.baseline_centralisation,
+    obs.graph_id,
+
+    obs.NodeID,
+    'Betweenness_raw' AS metric,
+    obs.Betweenness_raw AS observed_value,
+    gt.Betweenness_raw AS gt_value,
+    (obs.Betweenness_raw - gt.Betweenness_raw) / NULLIF(gt.Betweenness_raw, 0) AS relative_bias,
+    ABS((obs.Betweenness_raw - gt.Betweenness_raw) / NULLIF(gt.Betweenness_raw, 0)) AS abs_relative_bias
+
+  FROM node_results obs
+  INNER JOIN gt_aug gt
+    ON obs.dataset = gt.dataset
+   AND obs.replicate_id = gt.replicate_id
+   AND obs.NodeID = gt.NodeID
+
+  UNION ALL
+
+  SELECT
+    obs.dataset,
+    obs.replicate_id,
+    obs.alpha,
+    obs.spotlight_pct,
+    obs.b,
+    obs.miss_level,
+    gt.baseline_centralisation,
+    obs.graph_id,
+
+    obs.NodeID,
+    'Closeness_raw' AS metric,
+    obs.Closeness_raw AS observed_value,
+    gt.Closeness_raw AS gt_value,
+    (obs.Closeness_raw - gt.Closeness_raw) / NULLIF(gt.Closeness_raw, 0) AS relative_bias,
+    ABS((obs.Closeness_raw - gt.Closeness_raw) / NULLIF(gt.Closeness_raw, 0)) AS abs_relative_bias
+
+  FROM node_results obs
+  INNER JOIN gt_aug gt
+    ON obs.dataset = gt.dataset
+   AND obs.replicate_id = gt.replicate_id
+   AND obs.NodeID = gt.NodeID
+
+  UNION ALL
+
+  SELECT
+    obs.dataset,
+    obs.replicate_id,
+    obs.alpha,
+    obs.spotlight_pct,
+    obs.b,
+    obs.miss_level,
+    gt.baseline_centralisation,
+    obs.graph_id,
+
+    obs.NodeID,
+    'Eigenvector' AS metric,
+    obs.Eigenvector AS observed_value,
+    gt.Eigenvector AS gt_value,
+    (obs.Eigenvector - gt.Eigenvector) / NULLIF(gt.Eigenvector, 0) AS relative_bias,
+    ABS((obs.Eigenvector - gt.Eigenvector) / NULLIF(gt.Eigenvector, 0)) AS abs_relative_bias
+
+  FROM node_results obs
+  INNER JOIN gt_aug gt
+    ON obs.dataset = gt.dataset
+   AND obs.replicate_id = gt.replicate_id
+   AND obs.NodeID = gt.NodeID
+),
+
+graph_level_bias AS (
+  SELECT
+    dataset,
+    replicate_id,
+    graph_id,
     alpha,
-    gt_cent
-  ) %>%
-  summarise(
-    mean_abs_rb = mean(abs_relative_bias, na.rm = TRUE),
-    q25 = quantile(abs_relative_bias, 0.25, na.rm = TRUE),
-    q75 = quantile(abs_relative_bias, 0.75, na.rm = TRUE),
-    .groups = "drop"
-  )
+    spotlight_pct,
+    b,
+    miss_level,
+    baseline_centralisation,
+    metric,
 
-ggplot(
-  plot_df_1,
-  aes(
-    x = miss_level,
-    y = mean_abs_rb,
-    colour = factor(b),
-    fill = factor(b),
-    group = factor(b)
-  )
-) +
-  geom_ribbon(
-    aes(ymin = q25, ymax = q75),
-    alpha = 0.15,
-    colour = NA
-  ) +
-  geom_line(linewidth = 1) +
-  geom_point(size = 2) +
-  facet_grid(
-    gt_cent ~ alpha,
-    labeller = label_both
-  ) +
-  labs(
-    x = "Missingness level",
-    y = "Mean absolute relative bias",
-    colour = "Non-spotlit\ntie weight (b)",
-    fill = "Non-spotlit\ntie weight (b)",
-    title = paste("Absolute relative bias in", metric_choice),
-    subtitle = "Faceted by baseline centralisation and spotlight selection bias"
-  ) +
-  theme_minimal()
+    AVG(relative_bias) AS graph_mean_relative_bias,
+    AVG(abs_relative_bias) AS graph_mean_abs_relative_bias
+
+  FROM node_bias_long
+  WHERE relative_bias IS NOT NULL
+    AND abs_relative_bias IS NOT NULL
+
+  GROUP BY
+    dataset,
+    replicate_id,
+    graph_id,
+    alpha,
+    spotlight_pct,
+    b,
+    miss_level,
+    baseline_centralisation,
+    metric
+),
+
+condition_level_bias AS (
+  SELECT
+    alpha,
+    spotlight_pct,
+    b,
+    miss_level,
+    baseline_centralisation,
+    metric,
+
+    AVG(graph_mean_relative_bias) AS mean_relative_bias,
+    quantile_cont(graph_mean_relative_bias, 0.25) AS rb_q25,
+    quantile_cont(graph_mean_relative_bias, 0.75) AS rb_q75,
+
+    AVG(graph_mean_abs_relative_bias) AS mean_abs_relative_bias,
+    quantile_cont(graph_mean_abs_relative_bias, 0.25) AS abs_rb_q25,
+    quantile_cont(graph_mean_abs_relative_bias, 0.75) AS abs_rb_q75,
+
+    COUNT(*) AS n_graphs
+
+  FROM graph_level_bias
+
+  GROUP BY
+    alpha,
+    spotlight_pct,
+    b,
+    miss_level,
+    baseline_centralisation,
+    metric
+)
+
+SELECT *
+FROM condition_level_bias 
+ORDER BY
+  metric,
+  baseline_centralisation,
+  alpha,
+  spotlight_pct,
+  b,
+  miss_level;
+")
+
+node_bias_agg2 <- node_graph_bias <- DBI::dbGetQuery(con, "
+WITH gt_aug AS (
+  SELECT
+    *,
+    CASE regexp_extract(dataset, '_c([0-9]+)$', 1)
+      WHEN '1' THEN 'Low'
+      WHEN '3' THEN 'Med'
+      WHEN '5' THEN 'High'
+      ELSE 'WARNING'
+    END AS baseline_centralisation
+  FROM node_results_gt
+),
+
+node_bias_long AS (
+
+  SELECT
+    obs.dataset,
+    obs.replicate_id,
+    obs.graph_id,
+    obs.alpha,
+    obs.spotlight_pct,
+    obs.b,
+    obs.miss_level,
+    gt.baseline_centralisation,
+    obs.NodeID,
+
+    'Degree_raw' AS metric,
+
+    CASE
+      WHEN gt.Degree_raw != 0
+      THEN (obs.Degree_raw - gt.Degree_raw) / gt.Degree_raw
+      ELSE NULL
+    END AS relative_bias,
+
+    CASE
+      WHEN gt.Degree_raw != 0
+      THEN ABS((obs.Degree_raw - gt.Degree_raw) / gt.Degree_raw)
+      ELSE NULL
+    END AS abs_relative_bias
+
+  FROM node_results AS obs
+  INNER JOIN gt_aug AS gt
+    ON obs.dataset = gt.dataset
+   AND obs.replicate_id = gt.replicate_id
+   AND obs.NodeID = gt.NodeID
+
+  UNION ALL
+
+  SELECT
+    obs.dataset,
+    obs.replicate_id,
+    obs.graph_id,
+    obs.alpha,
+    obs.spotlight_pct,
+    obs.b,
+    obs.miss_level,
+    gt.baseline_centralisation,
+    obs.NodeID,
+
+    'Betweenness_raw' AS metric,
+
+    CASE
+      WHEN gt.Betweenness_raw != 0
+      THEN (obs.Betweenness_raw - gt.Betweenness_raw) / gt.Betweenness_raw
+      ELSE NULL
+    END AS relative_bias,
+
+    CASE
+      WHEN gt.Betweenness_raw != 0
+      THEN ABS((obs.Betweenness_raw - gt.Betweenness_raw) / gt.Betweenness_raw)
+      ELSE NULL
+    END AS abs_relative_bias
+
+  FROM node_results AS obs
+  INNER JOIN gt_aug AS gt
+    ON obs.dataset = gt.dataset
+   AND obs.replicate_id = gt.replicate_id
+   AND obs.NodeID = gt.NodeID
+
+  UNION ALL
+
+  SELECT
+    obs.dataset,
+    obs.replicate_id,
+    obs.graph_id,
+    obs.alpha,
+    obs.spotlight_pct,
+    obs.b,
+    obs.miss_level,
+    gt.baseline_centralisation,
+    obs.NodeID,
+
+    'Closeness_raw' AS metric,
+
+    CASE
+      WHEN isfinite(obs.Closeness_raw)
+       AND isfinite(gt.Closeness_raw)
+       AND gt.Closeness_raw != 0
+      THEN (obs.Closeness_raw - gt.Closeness_raw) / gt.Closeness_raw
+      ELSE NULL
+    END AS relative_bias,
+
+    CASE
+      WHEN isfinite(obs.Closeness_raw)
+       AND isfinite(gt.Closeness_raw)
+       AND gt.Closeness_raw != 0
+      THEN ABS((obs.Closeness_raw - gt.Closeness_raw) / gt.Closeness_raw)
+      ELSE NULL
+    END AS abs_relative_bias
+
+  FROM node_results AS obs
+  INNER JOIN gt_aug AS gt
+    ON obs.dataset = gt.dataset
+   AND obs.replicate_id = gt.replicate_id
+   AND obs.NodeID = gt.NodeID
+
+  UNION ALL
+
+  SELECT
+    obs.dataset,
+    obs.replicate_id,
+    obs.graph_id,
+    obs.alpha,
+    obs.spotlight_pct,
+    obs.b,
+    obs.miss_level,
+    gt.baseline_centralisation,
+    obs.NodeID,
+
+    'Eigenvector' AS metric,
+
+    CASE
+      WHEN gt.Eigenvector != 0
+      THEN (obs.Eigenvector - gt.Eigenvector) / gt.Eigenvector
+      ELSE NULL
+    END AS relative_bias,
+
+    CASE
+      WHEN gt.Eigenvector != 0
+      THEN ABS((obs.Eigenvector - gt.Eigenvector) / gt.Eigenvector)
+      ELSE NULL
+    END AS abs_relative_bias
+
+  FROM node_results AS obs
+  INNER JOIN gt_aug AS gt
+    ON obs.dataset = gt.dataset
+   AND obs.replicate_id = gt.replicate_id
+   AND obs.NodeID = gt.NodeID
+),
+
+graph_level_bias AS (
+  SELECT
+    dataset,
+    replicate_id,
+    graph_id,
+    alpha,
+    spotlight_pct,
+    b,
+    miss_level,
+    baseline_centralisation,
+    metric,
+
+    AVG(relative_bias) AS graph_mean_relative_bias,
+    AVG(abs_relative_bias) AS graph_mean_abs_relative_bias,
+
+    COUNT(*) AS n_nodes_total,
+    COUNT(relative_bias) AS n_nodes_used,
+    COUNT(*) - COUNT(relative_bias) AS n_nodes_dropped
+
+  FROM node_bias_long
+
+  WHERE baseline_centralisation != 'WARNING'
+
+  GROUP BY
+    dataset,
+    replicate_id,
+    graph_id,
+    alpha,
+    spotlight_pct,
+    b,
+    miss_level,
+    baseline_centralisation,
+    metric
+)
+
+SELECT *
+FROM graph_level_bias
+ORDER BY
+  metric,
+  baseline_centralisation,
+  alpha,
+  spotlight_pct,
+  b,
+  miss_level,
+  dataset,
+  replicate_id;
+")
 
 ################################# Trialing a model ###################################
 
