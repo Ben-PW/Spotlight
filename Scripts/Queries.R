@@ -267,7 +267,13 @@ node_corr_df <- DBI::dbGetQuery(con, "
       
       corr(obs_degree, gt_degree) AS degree_corr,
       
-      -- Closeness is apparently problematic
+      /* 
+      ** Closeness is apparently problematic, this will be due to NaN values caused
+      ** by disconnected nodes returning inf geodesics. This could potentially be an
+      ** issue if NaN cause correlations to fail, but after running and checking, 
+      ** every condition had the expected number of cases, meaning no netwokr comparison
+      ** fully failed
+      */
       
       corr(
       CASE 
@@ -330,6 +336,356 @@ node_corr_df %>%
     betweenness_na = sum(is.na(betweenness_corr)),
     eigenvector_na = sum(is.na(eigenvector_corr))
   )
+
+################################# Node rank plots ##################################
+
+# This dataframe is for node level bias calculations, including TopN, OverlapN, etc
+# this can potentially be used to investigate node level rank change, will depend
+# on precisely how I structure it
+
+node_rank_df <- DBI::dbGetQuery(con, "
+
+/* 
+** BLOCK 1: 
+** This is the first block of the query, it retrieves all relevant columns
+** from the tables in the db and combines them into a temporary table, which the 
+** subsequent blocks will query from
+*/
+
+    WITH temp AS(
+      SELECT
+        obs.dataset,
+        obs.replicate_id,
+        obs.alpha,
+        obs.b,
+        obs.miss_level,
+        obs.NodeID,
+        obs.Spotlight,
+        obs.spotlight_pct,
+        
+        obs.Degree_raw_rank AS obs_degree_rank,
+        obs.Betweenness_raw_rank AS obs_betweenness_rank,
+        obs.Closeness_raw_rank AS obs_closeness_rank,
+        obs.Eigenvector_rank AS obs_eigenvector_rank,
+        
+        gt.Degree_raw_rank AS gt_degree_rank,
+        gt.Betweenness_raw_rank AS gt_betweenness_rank,
+        gt.Closeness_raw_rank AS gt_closeness_rank,
+        gt.Eigenvector_rank AS gt_eigenvector_rank,
+        
+        net.size AS net_size,
+        net.density * (net.size - 1) AS net_av_deg,
+        net.dcent AS net_centralisation
+        
+      FROM node_results_ranked AS obs
+      
+      JOIN node_results_GT_ranked AS gt
+        ON obs.dataset = gt.dataset
+        AND obs.replicate_id = gt.replicate_id
+        AND obs.NodeID = gt.NodeID
+        
+      JOIN network_results_gt AS net
+        ON obs.dataset = net.dataset
+        AND obs.replicate_id = net.replicate_id
+        
+    ),
+    
+/* 
+** BLOCK 2:
+** Create a long table with binary indicators for top 10% membership
+** this can be re-used for all outcome measures, but will have to be 
+** recalculated for any other values of N. Not complicated just time consuming
+*/
+    
+    top10_long AS(
+    
+    -- Top 10 for degree centrality
+    
+    SELECT
+      dataset,
+      replicate_id,
+      alpha,
+      spotlight_pct,
+      b,
+      miss_level,
+      NodeID,
+      Spotlight,
+      net_size,
+      net_av_deg,
+      net_centralisation,
+        
+      -- Specify string to go in new 'metric' column in long dataset
+        
+      'Degree' AS metric,
+      obs_degree_rank AS obs_rank,
+      gt_degree_rank AS gt_rank,
+      CEIL(0.10 * net_size) AS top_n_cutoff,
+        
+      CASE
+        WHEN obs_degree_rank <= CEIL(0.10 * net_size) THEN 1
+        ELSE 0
+      END AS obs_top10,
+        
+      CASE 
+        WHEN gt_degree_rank <= CEIL(0.10 * net_size) THEN 1
+        ELSE 0
+      END AS gt_top10
+        
+    FROM temp
+      
+    UNION ALL
+      
+    -- Betweenness centrality
+    
+    SELECT
+      dataset,
+      replicate_id,
+      alpha,
+      spotlight_pct,
+      b,
+      miss_level,
+      NodeID,
+      Spotlight,
+      net_size,
+      net_av_deg,
+      net_centralisation,
+      
+      'Betweenness' AS metric,
+      obs_betweenness_rank AS obs_rank,
+      gt_betweenness_rank AS gt_rank,
+      CEIL(0.10 * net_size) AS top_n_cutoff,
+      
+      CASE
+        WHEN obs_betweenness_rank <= CEIL(0.10 * net_size) THEN 1
+        ELSE 0
+      END AS obs_top10,
+      
+      CASE
+        WHEN gt_betweenness_rank <= CEIL(0.10 * net_size) THEN 1
+        ELSE 0
+      END AS gt_top10
+      
+    FROM temp
+    
+    UNION ALL
+    
+    -- Closeness centrality
+    
+    SELECT
+      dataset,
+      replicate_id,
+      alpha,
+      spotlight_pct,
+      b,
+      miss_level,
+      NodeID,
+      Spotlight,
+      net_size,
+      net_av_deg,
+      net_centralisation,
+      
+      'Closeness' AS metric,
+      obs_closeness_rank AS obs_rank,
+      gt_closeness_rank AS gt_rank,
+      CEIL(0.10 * net_size) AS top_n_cutoff,
+      
+      CASE
+        WHEN obs_closeness_rank <= CEIL(0.10 * net_size) THEN 1
+        ELSE 0
+      END AS obs_top10,
+      
+      CASE
+        WHEN gt_closeness_rank <= CEIL(0.10 * net_size) THEN 1
+        ELSE 0
+      END AS gt_top10
+      
+    FROM temp
+    
+    UNION ALL
+    
+    -- Eigenvector centrality
+    
+    SELECT
+      dataset,
+      replicate_id,
+      alpha,
+      spotlight_pct,
+      b,
+      miss_level,
+      NodeID,
+      Spotlight,
+      net_size,
+      net_av_deg,
+      net_centralisation,
+      
+      'Eigenvector' AS metric,
+      obs_eigenvector_rank AS obs_rank,
+      gt_eigenvector_rank AS gt_rank,
+      CEIL(0.10 * net_size) AS top_n_cutoff,
+      
+      CASE
+        WHEN obs_eigenvector_rank <= CEIL(0.10 * net_size) THEN 1
+        ELSE 0
+      END AS obs_top10,
+      
+      CASE
+        WHEN gt_eigenvector_rank <= CEIL(0.10 * net_size) THEN 1
+        ELSE 0
+      END AS gt_top10
+      
+    FROM temp
+    
+    ),
+    
+/*
+** BLOCK 3:
+** This block takes the top 10 labels stored in the temporary table top10 and counts 
+** the number of spotlit and non spotlit nodes in each condition, which can then be
+** used for outcome metrics
+*/
+
+    top_counts AS(
+    
+    SELECT
+      dataset,
+      replicate_id,
+      alpha,
+      spotlight_pct,
+      b,
+      miss_level,
+      metric,
+
+      net_size,
+      net_av_deg,
+      net_centralisation,
+      top_n_cutoff,
+      
+      COUNT(*) AS n_nodes,
+      
+      SUM(obs_top10) AS obs_topN,
+      SUM(gt_top10) AS gt_topN,
+      
+      SUM(
+        CASE
+          WHEN obs_top10 = 1 AND gt_top10 = 1 THEN 1
+          ELSE 0
+        END
+      ) AS intersection_n,
+      
+      SUM(
+        CASE
+          WHEN obs_top10 = 1 OR gt_top10 = 1 THEN 1
+          ELSE 0
+        END
+      ) AS union_n,
+      
+      SUM(Spotlight) AS n_spotlit,
+      
+      SUM(
+        CASE
+          WHEN obs_top10 = 1 AND Spotlight = 1 THEN 1
+          ELSE 0
+        END
+      ) AS n_spotlit_obs_top,
+      
+      SUM(
+        CASE
+          WHEN gt_top10 = 1 AND Spotlight = 1 THEN 1
+          ELSE 0
+        END
+      ) AS n_spotlit_gt_top
+      
+    FROM top10_long
+
+    GROUP BY
+      dataset,
+      replicate_id,
+      alpha,
+      spotlight_pct,
+      b,
+      miss_level,
+      metric,
+      net_size,
+      net_av_deg,
+      net_centralisation,
+      top_n_cutoff
+    )
+
+/*
+** BLOCK 4:
+** This block takes the union, intersection, etc of spotlight topN membership calculated
+** in block 3 and converts them into the outcome metrics for this section
+*/
+
+    SELECT
+      dataset,
+      replicate_id,
+      alpha,
+      spotlight_pct,
+      b,
+      miss_level,
+      metric,
+      
+      net_size,
+      net_av_deg,
+      net_centralisation,
+      top_n_cutoff,
+      
+      n_nodes,
+      obs_topN,
+      gt_topN,
+      intersection_n,
+      union_n,
+      n_spotlit,
+      n_spotlit_obs_top,
+      n_spotlit_gt_top,
+      
+      -- Top-N recovery metrics
+      intersection_n / NULLIF(obs_topN, 0) AS precision,
+      intersection_n / NULLIF(gt_topN, 0) AS recall,
+      intersection_n / NULLIF(union_n, 0) AS jaccard_overlap,
+
+      -- Spotlight rates
+      n_spotlit / NULLIF(n_nodes, 0) AS spotlight_rate_overall,
+      n_spotlit_obs_top / NULLIF(obs_topN, 0) AS spotlight_rate_obs_top,
+      n_spotlit_gt_top / NULLIF(gt_topN, 0) AS spotlight_rate_gt_top,
+
+      -- Spotlight lift
+      (n_spotlit_obs_top / NULLIF(obs_topN, 0))
+        /
+      NULLIF((n_spotlit / NULLIF(n_nodes, 0)), 0)
+        AS spotlight_lift_obs_top,
+
+      (n_spotlit_gt_top / NULLIF(gt_topN, 0))
+        /
+      NULLIF((n_spotlit / NULLIF(n_nodes, 0)), 0)
+        AS spotlight_lift_gt_top,
+
+      -- Excess observed spotlight enrichment beyond GT enrichment
+      (
+        (n_spotlit_obs_top / NULLIF(obs_topN, 0))
+          /
+        NULLIF((n_spotlit / NULLIF(n_nodes, 0)), 0)
+      )
+      -
+      (
+        (n_spotlit_gt_top / NULLIF(gt_topN, 0))
+          /
+        NULLIF((n_spotlit / NULLIF(n_nodes, 0)), 0)
+      )
+        AS excess_spotlight_lift
+
+    FROM top_counts
+
+    ORDER BY
+      dataset,
+      replicate_id,
+      alpha,
+      spotlight_pct,
+      b,
+      miss_level,
+      metric;
+")
 
 # NB this query removes any nodes with infinite or NaN values, meaning these values 
 # only hold for nodes connected in some way to a component

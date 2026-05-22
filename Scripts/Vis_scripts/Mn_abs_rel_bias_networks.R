@@ -74,7 +74,7 @@ ggplot(
 
 metric_choice <- "APL"
 
-plot_df_1 <- network_bias_long %>%
+plot_df_1 <- mn_abs_rel_bias_nets %>%
   filter(metric == metric_choice) %>%
   filter(baseline_centralisation != "WARNING") %>%
   rename(gt_cent = baseline_centralisation) %>%
@@ -136,7 +136,7 @@ ggplot(
 
 metric_choice <- "clustering"
 
-plot_df_1 <- network_bias_long %>%
+plot_df_1 <- mn_abs_rel_bias_nets %>%
   filter(metric == metric_choice) %>%
   filter(baseline_centralisation != "WARNING") %>%
   rename(gt_cent = baseline_centralisation) %>%

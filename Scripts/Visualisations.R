@@ -58,7 +58,37 @@ source(here::here("Scripts", "Vis_scripts", "Mn_rel_bias_networks.R"))
 #source(here::here("Scripts", "Vis_scripts", "Mn_bias_nodes_agg.R"))
 
 # Correlation plots between node level values 
+# Target metrics:
+# - Degree centrality
+# - Betweenness centrality
+# - Closeness centrality
+# - Eigenvector centrality
+# Design variables
+# - alpha
+# - missingness level
+# - spotlight strength
+# - ground truth centralisation
+
+# Required dataframe: node_corr_df
+library(stringr)
 source(here::here("Scripts", "Vis_scripts", "Corr_nodes.R"))
+
+############################# Non aggregated node metrics ########################
+
+# Plots of node level outcomes such as TopN, OverlapN etc
+# Target metrics:
+# - Degree centrality
+# - Betweenness centrality
+# - Closeness centrality
+# - Eigenvector centrality
+# Design variables
+# - alpha
+# - missingness level
+# - spotlight strength
+# - ground truth centralisation
+
+# Required dataframe: node_rank_df
+source(here::here("Scripts", "Vis_scripts", "Node_rank_bias.R"))
 
 
 
