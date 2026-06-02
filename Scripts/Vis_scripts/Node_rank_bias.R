@@ -3,20 +3,6 @@
 # This is the script for visualising the various node level outcome metrics which
 # distinguish between spotlit and non spotlit nodes
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 make_topN_plot_df <- function(df,
                               metric_choice,
                               outcome_col,

@@ -687,6 +687,279 @@ node_rank_df <- DBI::dbGetQuery(con, "
       metric;
 ")
 
+
+# This dataframe is to get rank change metrics for nodes under different conditions
+# of spotlight effect. Not using stuff like TopN, this is more how much the
+# nodes' actual ranks changed
+
+rank_lift_df <- DBI::dbGetQuery(con, "
+
+/*
+** BLOCK 1:
+** Join observed ranked node results to GT ranked node results,
+** and attach GT network-level structural information.
+*/
+
+WITH temp AS (
+  SELECT
+    obs.dataset,
+    obs.replicate_id,
+    obs.alpha,
+    obs.spotlight_pct,
+    obs.b,
+    obs.miss_level,
+    obs.NodeID,
+    obs.Spotlight,
+
+    obs.Degree_raw_rank AS obs_degree_rank,
+    obs.Betweenness_raw_rank AS obs_betweenness_rank,
+    obs.Closeness_raw_rank AS obs_closeness_rank,
+    obs.Eigenvector_rank AS obs_eigenvector_rank,
+
+    gt.Degree_raw_rank AS gt_degree_rank,
+    gt.Betweenness_raw_rank AS gt_betweenness_rank,
+    gt.Closeness_raw_rank AS gt_closeness_rank,
+    gt.Eigenvector_rank AS gt_eigenvector_rank,
+
+    net.size AS net_size,
+    net.density * (net.size - 1) AS net_av_deg,
+    net.dcent AS net_centralisation
+
+  FROM node_results_ranked AS obs
+
+  JOIN node_results_GT_ranked AS gt
+    ON obs.dataset = gt.dataset
+   AND obs.replicate_id = gt.replicate_id
+   AND obs.NodeID = gt.NodeID
+
+  JOIN network_results_gt AS net
+    ON obs.dataset = net.dataset
+   AND obs.replicate_id = net.replicate_id
+),
+
+/*
+** BLOCK 2:
+** Convert the wide centrality-rank columns into a long metric format.
+** This creates one row per node x graph-condition x centrality metric.
+*/
+
+rank_long AS (
+
+  -- Degree centrality
+  SELECT
+    dataset,
+    replicate_id,
+    alpha,
+    spotlight_pct,
+    b,
+    miss_level,
+    NodeID,
+    Spotlight,
+    net_size,
+    net_av_deg,
+    net_centralisation,
+
+    'Degree' AS metric,
+    obs_degree_rank AS obs_rank,
+    gt_degree_rank AS gt_rank,
+
+    (gt_degree_rank - obs_degree_rank) / NULLIF(net_size - 1, 0) AS norm_rank_lift,
+    ABS(gt_degree_rank - obs_degree_rank) / NULLIF(net_size - 1, 0) AS abs_norm_rank_change
+
+  FROM temp
+
+  UNION ALL
+
+  -- Betweenness centrality
+  SELECT
+    dataset,
+    replicate_id,
+    alpha,
+    spotlight_pct,
+    b,
+    miss_level,
+    NodeID,
+    Spotlight,
+    net_size,
+    net_av_deg,
+    net_centralisation,
+
+    'Betweenness' AS metric,
+    obs_betweenness_rank AS obs_rank,
+    gt_betweenness_rank AS gt_rank,
+
+    (gt_betweenness_rank - obs_betweenness_rank) / NULLIF(net_size - 1, 0) AS norm_rank_lift,
+    ABS(gt_betweenness_rank - obs_betweenness_rank) / NULLIF(net_size - 1, 0) AS abs_norm_rank_change
+
+  FROM temp
+
+  UNION ALL
+
+  -- Closeness centrality
+  SELECT
+    dataset,
+    replicate_id,
+    alpha,
+    spotlight_pct,
+    b,
+    miss_level,
+    NodeID,
+    Spotlight,
+    net_size,
+    net_av_deg,
+    net_centralisation,
+
+    'Closeness' AS metric,
+    obs_closeness_rank AS obs_rank,
+    gt_closeness_rank AS gt_rank,
+
+    (gt_closeness_rank - obs_closeness_rank) / NULLIF(net_size - 1, 0) AS norm_rank_lift,
+    ABS(gt_closeness_rank - obs_closeness_rank) / NULLIF(net_size - 1, 0) AS abs_norm_rank_change
+
+  FROM temp
+
+  UNION ALL
+
+  -- Eigenvector centrality
+  SELECT
+    dataset,
+    replicate_id,
+    alpha,
+    spotlight_pct,
+    b,
+    miss_level,
+    NodeID,
+    Spotlight,
+    net_size,
+    net_av_deg,
+    net_centralisation,
+
+    'Eigenvector' AS metric,
+    obs_eigenvector_rank AS obs_rank,
+    gt_eigenvector_rank AS gt_rank,
+
+    (gt_eigenvector_rank - obs_eigenvector_rank) / NULLIF(net_size - 1, 0) AS norm_rank_lift,
+    ABS(gt_eigenvector_rank - obs_eigenvector_rank) / NULLIF(net_size - 1, 0) AS abs_norm_rank_change
+
+  FROM temp
+),
+
+/*
+** BLOCK 3:
+** Aggregate node-level rank movement to the graph-condition-metric level.
+*/
+
+rank_lift_counts AS (
+  SELECT
+    dataset,
+    replicate_id,
+    alpha,
+    spotlight_pct,
+    b,
+    miss_level,
+    metric,
+
+    net_size,
+    net_av_deg,
+    net_centralisation,
+
+    COUNT(*) AS n_nodes,
+    SUM(Spotlight) AS n_spotlit,
+
+    AVG(norm_rank_lift) AS mean_norm_rank_lift,
+    AVG(abs_norm_rank_change) AS mean_abs_norm_rank_change,
+
+    AVG(
+      CASE
+        WHEN Spotlight = 1 THEN norm_rank_lift
+      END
+    ) AS mean_norm_rank_lift_spotlit,
+
+    AVG(
+      CASE
+        WHEN Spotlight = 0 THEN norm_rank_lift
+      END
+    ) AS mean_norm_rank_lift_nonspotlit,
+
+    AVG(
+      CASE
+        WHEN Spotlight = 1 THEN abs_norm_rank_change
+      END
+    ) AS mean_abs_norm_rank_change_spotlit,
+
+    AVG(
+      CASE
+        WHEN Spotlight = 0 THEN abs_norm_rank_change
+      END
+    ) AS mean_abs_norm_rank_change_nonspotlit
+
+  FROM rank_long
+
+  GROUP BY
+    dataset,
+    replicate_id,
+    alpha,
+    spotlight_pct,
+    b,
+    miss_level,
+    metric,
+    net_size,
+    net_av_deg,
+    net_centralisation
+)
+
+/*
+** BLOCK 4:
+** Calculate spotlight-vs-nonspotlight gaps.
+*/
+
+SELECT
+  dataset,
+  replicate_id,
+  alpha,
+  spotlight_pct,
+  b,
+  miss_level,
+  metric,
+
+  net_size,
+  net_av_deg,
+  net_centralisation,
+
+  n_nodes,
+  n_spotlit,
+
+  mean_norm_rank_lift,
+  mean_abs_norm_rank_change,
+
+  mean_norm_rank_lift_spotlit,
+  mean_norm_rank_lift_nonspotlit,
+
+  mean_abs_norm_rank_change_spotlit,
+  mean_abs_norm_rank_change_nonspotlit,
+
+  mean_norm_rank_lift_spotlit
+    -
+  mean_norm_rank_lift_nonspotlit
+    AS spotlight_rank_lift_gap,
+
+  mean_abs_norm_rank_change_spotlit
+    -
+  mean_abs_norm_rank_change_nonspotlit
+    AS spotlight_abs_rank_change_gap
+
+FROM rank_lift_counts
+
+ORDER BY
+  dataset,
+  replicate_id,
+  alpha,
+  spotlight_pct,
+  b,
+  miss_level,
+  metric;
+")
+
 # NB this query removes any nodes with infinite or NaN values, meaning these values 
 # only hold for nodes connected in some way to a component
 

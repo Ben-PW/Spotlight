@@ -90,9 +90,20 @@ source(here::here("Scripts", "Vis_scripts", "Corr_nodes.R"))
 # Required dataframe: node_rank_df
 source(here::here("Scripts", "Vis_scripts", "Node_rank_bias.R"))
 
+# Plots of node level rank change statistics
+# Target metrics:
+# - Degree centrality rank change
+# - Betweenness centrality rank change
+# - Closeness centrality rank change
+# - Eigenvector centrality rank change
+# Design variables
+# - alpha
+# - missingness level
+# - spotlight strength
+# - ground truth centralisation
 
-
-
+# Required dataframe: rank_lift_df
+source(here::here("Scripts", "Vis_scripts", "Node_rank_change.R"))
 
 
 
